@@ -9,7 +9,7 @@ print(label_map)
 
 if os.path.exists('./data/datafiles/') == False:
     os.mkdir('./data/datafiles')
-    base_path = './data/IEMOCAP/'
+    base_path = '../data/IEMOCAP/'
     for split in ['testing', 'validation', 'train']:
         wav_list = []
         with open(base_path+split+'_list.txt', 'r') as f:
@@ -24,9 +24,6 @@ if os.path.exists('./data/datafiles/') == False:
                 json.dump({'data': wav_list}, f, indent=1)
         if split == 'testing':
             with open('./data/datafiles/speechcommand_eval_data.json', 'w') as f:
-                json.dump({'data': wav_list}, f, indent=1)
-        if split == 'validation':
-            with open('./data/datafiles/speechcommand_valid_data.json', 'w') as f:
                 json.dump({'data': wav_list}, f, indent=1)
         print(split + ' data processing finished, total {:d} samples'.format(len(wav_list)))
 
