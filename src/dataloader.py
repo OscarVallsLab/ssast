@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+
 # @Time    : 6/19/21 12:23 AM
 # @Author  : Yuan Gong
 # @Affiliation  : Massachusetts Institute of Technology
