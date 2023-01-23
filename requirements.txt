@@ -5,7 +5,7 @@ numpy
 scikit-learn
 scipy
 sklearn
-timm
+timm==0.4.5
 torch
 torchaudio
 wget

@@ -1,5 +1,11 @@
 import os
+import json
 import numpy as np
+import pandas as pd
+
+DATA_PATH = os.path.abspath('../../../../data/IEMOCAP')
+OUTPUT_PATH = './datafiles'
+print(DATA_PATH)
 
 label_set = np.loadtxt('./data/IEMOCAP_class_labels_indices.csv', delimiter=',', dtype='str')
 label_map = {}
@@ -7,24 +13,48 @@ for i in range(1, len(label_set)):
     label_map[eval(label_set[i][2])] = label_set[i][0]
 print(label_map)
 
-if os.path.exists('./data/datafiles/') == False:
-    os.mkdir('./data/datafiles')
-    base_path = '../data/IEMOCAP/'
-    for split in ['testing', 'validation', 'train']:
-        wav_list = []
-        with open(base_path+split+'_list.txt', 'r') as f:
-            filelist = f.readlines()
-        for file in filelist:
-            cur_label = label_map[file.split('/')[0]]
-            cur_path = os.path.abspath(os.getcwd()) + '/data/speech_commands_v0.02/' + file.strip()
-            cur_dict = {"wav": cur_path, "labels": '/m/spcmd'+cur_label.zfill(2)}
-            wav_list.append(cur_dict)
-        if split == 'train':
-            with open('./data/datafiles/speechcommand_train_data.json', 'w') as f:
-                json.dump({'data': wav_list}, f, indent=1)
-        if split == 'testing':
-            with open('./data/datafiles/speechcommand_eval_data.json', 'w') as f:
-                json.dump({'data': wav_list}, f, indent=1)
-        print(split + ' data processing finished, total {:d} samples'.format(len(wav_list)))
+if os.path.exists(OUTPUT_PATH) == False:
+    os.mkdir(OUTPUT_PATH)
 
-    print('IEMOCAP dataset processing finished.')
+for k in range(1,5):
+    print(f"Processing fold {k}")
+    train_df = pd.read_excel(os.path.join(DATA_PATH,f'KFolds/{k}_fold_train.xlsx'))
+    val_df = pd.read_excel(os.path.join(DATA_PATH,f'KFolds/{k}_fold_val.xlsx'))
+    train_dict,val_dict = ({"data":[]},{"data":[]})
+    
+    for index in range(len(train_df)):
+        wav_path = os.path.abspath('../../../' + train_df.iloc[index]['data'])
+        train_dict["data"].append({
+            "wav" : wav_path,
+            "labels" : train_df.iloc[index]['class']
+            })
+    
+    with open(f'./data/datafiles/{k}_fold_train_data.json','w') as file:
+        json.dump(train_dict,file)
+        
+    for index in range(len(val_df)):
+        wav_path = os.path.abspath('../../../' + train_df.iloc[index]['data'])
+        val_dict["data"].append({
+            "wav" : wav_path,
+            "labels" : train_df.iloc[index]['class']
+        })
+    
+    with open(f'./data/datafiles/{k}_fold_valid_data.json','w') as file:
+        json.dump(val_dict,file)
+
+print(f"Proccessing test split")
+test_df = pd.read_excel(os.path.join(DATA_PATH,f'KFolds/fold_test.xlsx'))
+test_dict = {"data":[]}
+
+for index in range(len(test_df)):
+    wav_path = os.path.abspath('../../../' + test_df.iloc[index]['data'])
+    test_dict["data"].append({
+        "wav" : wav_path,
+        "labels" : test_df.iloc[index]['class']
+        })
+
+with open(f'./data/datafiles/test_data.json','w') as file:
+    json.dump(test_dict,file)
+
+
+print('IEMOCAP dataset processing finished.')
