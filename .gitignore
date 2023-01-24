@@ -18,3 +18,4 @@ src/finetune/superb/s3prl-master/*
 .idea/*
 venvssast/
 .vscode/
+src/finetune/IEMOCAP/exp/

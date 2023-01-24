@@ -23,19 +23,20 @@ pretrain_model=SSAST-Base-Frame-400
 dataset=iemocap
 dataset_mean=-6.845978
 dataset_std=5.5654526
-target_length=128
-noise=True
+target_length=512
+noise=False
 tr_data=./data/datafiles/1_fold_train_data.json
 val_data=./data/datafiles/1_fold_valid_data.json
 eval_data=./data/datafiles/test_data.json
 
 bal=none
 lr=2.5e-4
+# Masks length
 freqm=48
 timem=48
 mixup=0.6
 epoch=30
-batch_size=32
+batch_size=16
 fshape=128
 tshape=2
 fstride=128

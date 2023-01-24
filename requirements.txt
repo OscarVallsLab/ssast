@@ -10,3 +10,5 @@ torch
 torchaudio
 wget
 zipp
+pandas
+openpyxl
