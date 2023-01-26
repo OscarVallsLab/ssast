@@ -6,8 +6,11 @@ import dataloader
 
 from utilities import *
 from models import ASTModel
+from model_explain import VITAttentionRollout
 
 import torch.nn as nn
+import matplotlib.pyplot as plt
+
 
 # Define validation loop
 def validate(audio_model, val_loader, args, epoch):
@@ -23,8 +26,32 @@ def validate(audio_model, val_loader, args, epoch):
     A_predictions = []
     A_targets = []
     A_loss = []
+    attentions = []
+    plot = False
+    attention_layer_name = 'attn_drop'
     with torch.no_grad():
         for i, (audio_input, labels) in enumerate(val_loader):
+            rollout = VITAttentionRollout(audio_model, discard_ratio=0.9,head_fusion='min')
+            category_index = int(labels[0,:].nonzero())
+            mask = rollout(audio_input[0:1,:,:],args)
+            print(f"Mask shape = {mask.shape}")
+            audio_spec = np.rot90(audio_input[0,:,:].numpy())
+            print(f"Audio spectrogram shape {audio_spec.shape}")
+            spec_att_mask = np.zeros(audio_spec.shape)
+            print(f"Spectrogram attention mask = {spec_att_mask.shape}")
+            for i in range(audio_spec.shape[0]):
+                spec_att_mask[i,:] = mask            
+            print(f"Final mask shape = {spec_att_mask.shape}")
+            # Plot audio input spectrogram
+            plt.figure()
+            plt.imshow(audio_spec,aspect='auto')
+            plt.show()
+            plt.figure()
+            plt.imshow(spec_att_mask,aspect='auto')
+            plt.show()
+            print("Spectrogram plotted")
+            break
+
             audio_input = audio_input.to(device)
 
             # compute output
@@ -46,18 +73,18 @@ def validate(audio_model, val_loader, args, epoch):
             batch_time.update(time.time() - end)
             end = time.time()
 
-        audio_output = torch.cat(A_predictions)
-        target = torch.cat(A_targets)
-        loss = np.mean(A_loss)
-        stats = calculate_stats(audio_output, target)
+        # audio_output = torch.cat(A_predictions)
+        # target = torch.cat(A_targets)
+        # loss = np.mean(A_loss)
+        # stats = calculate_stats(audio_output, target)
 
-        # save the prediction here
-        exp_dir = args.exp_dir
-        # if os.path.exists(exp_dir+'/predictions') == False:
-        #     os.mkdir(exp_dir+'/predictions')
-        #     np.savetxt(exp_dir+'/predictions/target.csv', target, delimiter=',')
-        # np.savetxt(exp_dir+'/predictions/predictions_' + str(epoch) + '.csv', audio_output, delimiter=',')
-
+        # # save the prediction here
+        # exp_dir = args.exp_dir
+        # # if os.path.exists(exp_dir+'/predictions') == False:
+        # #     os.mkdir(exp_dir+'/predictions')
+        # #     np.savetxt(exp_dir+'/predictions/target.csv', target, delimiter=',')
+        # # np.savetxt(exp_dir+'/predictions/predictions_' + str(epoch) + '.csv', audio_output, delimiter=',')
+        stats, loss = (0,0)
     return stats, loss
 
 # Load same args and audio config as experiment
