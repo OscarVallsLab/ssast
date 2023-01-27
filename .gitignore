@@ -5,6 +5,7 @@
 *.flac
 *.DS_Store
 *.requirements_ssast.txt
+*.pkl
 figure/*
 !figure/10854_ssast.pdf
 !figure/10854_ssast.png

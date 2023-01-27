@@ -254,12 +254,16 @@ class ASTModel(nn.Module):
         x = x + self.v.pos_embed
         x = self.v.pos_drop(x)
 
+        # Transformer blocks
         for blk_id, blk in enumerate(self.v.blocks):
+            #print(f"Block {blk_id} = {blk}")
             x = blk(x)
+        #print(f"Blocks output = {x.size()}")
         x = self.v.norm(x)
-
+        #print(f"Norm output = {x.size()}")
         # average output of all tokens except cls token(s)
         x = torch.mean(x[:, self.cls_token_num:, :], dim=1)
+        #print(f"Mean pooling output = {x.size()}")
         x = self.mlp_head(x)
         return x
 

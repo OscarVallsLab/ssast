@@ -6,11 +6,35 @@ import dataloader
 
 from utilities import *
 from models import ASTModel
+from model_explain import VITAttentionRollout
 
 import torch.nn as nn
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+
+def plot_attention_map(audio_model,audio_input,labels,args,title):
+    rollout = VITAttentionRollout(audio_model, discard_ratio=0.9,head_fusion='mean')
+    mask = rollout(audio_input[0:1,:,:],args)
+    print(f"Mask shape = {mask.shape}")
+    audio_spec = np.rot90(audio_input[0,:,:].numpy())
+    print(f"Audio spectrogram shape {audio_spec.shape}")
+    spec_att_mask = np.zeros(audio_spec.shape)
+    print(f"Spectrogram attention mask = {spec_att_mask.shape}")
+    for i in range(audio_spec.shape[0]):
+        spec_att_mask[i,:] = mask            
+    print(f"Final mask shape = {spec_att_mask.shape}")
+    cmap = mpl.cm.get_cmap()
+    heatmap = cmap(spec_att_mask,alpha = 0.2)
+    # Plot audio input spectrogram
+    fig, axs = plt.subplots(1,1)
+    plt.title(title)
+    axs.imshow(audio_spec,cmap='gray',aspect='auto')
+    axs.imshow(heatmap)
+    plt.show()
+    print("Spectrogram plotted")
 
 # Define validation loop
-def validate(audio_model, val_loader, args, epoch):
+def validate(audio_model, val_loader, args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     batch_time = AverageMeter()
     if not isinstance(audio_model, nn.DataParallel):
@@ -18,47 +42,24 @@ def validate(audio_model, val_loader, args, epoch):
     audio_model = audio_model.to(device)
     # switch to evaluate mode
     audio_model.eval()
-
-    end = time.time()
-    A_predictions = []
-    A_targets = []
-    A_loss = []
     with torch.no_grad():
         for i, (audio_input, labels) in enumerate(val_loader):
             audio_input = audio_input.to(device)
-
             # compute output
             audio_output = audio_model(audio_input, args.task)
             audio_output = torch.sigmoid(audio_output)
             predictions = audio_output.to('cpu').detach()
+            
+            # Compare output with label
+            output_one_hot = torch.nn.functional.one_hot(torch.argmax(predictions), len(predictions[0]))
+            correct_pred =  torch.equal(output_one_hot, labels)
 
-            A_predictions.append(predictions)
-            A_targets.append(labels)
-
-            # compute the loss
-            labels = labels.to(device)
-            if isinstance(args.loss_fn, torch.nn.CrossEntropyLoss):
-                loss = args.loss_fn(audio_output, torch.argmax(labels.long(), axis=1))
+            if correct_pred:
+                title = "Right prediction"
             else:
-                loss = args.loss_fn(audio_output, labels)
-            A_loss.append(loss.to('cpu').detach())
-
-            batch_time.update(time.time() - end)
-            end = time.time()
-
-        audio_output = torch.cat(A_predictions)
-        target = torch.cat(A_targets)
-        loss = np.mean(A_loss)
-        stats = calculate_stats(audio_output, target)
-
-        # save the prediction here
-        exp_dir = args.exp_dir
-        # if os.path.exists(exp_dir+'/predictions') == False:
-        #     os.mkdir(exp_dir+'/predictions')
-        #     np.savetxt(exp_dir+'/predictions/target.csv', target, delimiter=',')
-        # np.savetxt(exp_dir+'/predictions/predictions_' + str(epoch) + '.csv', audio_output, delimiter=',')
-
-    return stats, loss
+                title = "Wrong prediction"
+            audio_input = audio_input.to('cpu')
+            plot_attention_map(audio_model,audio_input,labels,args,title)
 
 # Load same args and audio config as experiment
 with open('./finetune/IEMOCAP/exp/args.pkl','rb') as file:
@@ -87,8 +88,8 @@ eval_loader = torch.utils.data.DataLoader(
         dataloader.AudioDataset(dataset_json_file='./finetune/IEMOCAP/data/datafiles/test_data.json',
                             label_csv='./finetune/IEMOCAP/data/IEMOCAP_class_labels_indices.csv',
                             audio_conf=val_audio_conf),
-    batch_size=args.batch_size*2, shuffle=False, num_workers=8, pin_memory=True)
-stats, _ = validate(audio_model, eval_loader, args, 'eval_set')
+    batch_size=1, shuffle=True, num_workers=8, pin_memory=True)
+validate(audio_model, eval_loader, args)
 
 # Process and report test stats
 eval_acc = stats[0]['acc']
