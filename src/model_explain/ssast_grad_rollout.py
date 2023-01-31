@@ -7,8 +7,9 @@ def grad_rollout(attentions, gradients, discard_ratio):
     print(f"Attentions size {result.size()}")
     with torch.no_grad():
         for attention, grad in zip(attentions, gradients):                
-            #weights = grad
-            # attention_heads_fused = (attention*weights).mean(axis=1)
+            weights = grad
+            print(weights.max())
+            attention_heads_fused = (attention*weights).mean(axis=1)
             attention_heads_fused = (attention).mean(axis=1)
             attention_heads_fused[attention_heads_fused < 0] = 0
             print(f"Attention heads fused size {attention_heads_fused.size()}")
@@ -33,21 +34,25 @@ def grad_rollout(attentions, gradients, discard_ratio):
     # In case of 224x224 image, this brings us from 196 to 14
     width = int(mask.size(-1)**0.5)
     print(f"Calculated width = {width}")
-    mask = mask[0:(width**2)]
-    mask = mask.reshape((width,width)).numpy()
+    print(mask)
+    # mask = mask[0:(width**2)]
+    # mask = mask.reshape((width,width)).numpy()
     mask = mask / np.max(mask)
     print(f"Final attention mask shape = {mask.shape}")
     return mask    
 
 class VITAttentionGradRollout:
-    def __init__(self, model, attention_layer_name='attn_drop',
-        discard_ratio=0.9):
+    def __init__(self, model, attention_layer_name='qkv',
+        discard_ratio=0.1):
         self.model = model
         self.discard_ratio = discard_ratio
         for name, module in self.model.named_modules():
+            print(f"Name: {name}")
+            print(f"Module: {module}")
+            print(f"Require grad: {module.requires_grad_}")
             if attention_layer_name in name:
+                module.register_full_backward_hook(self.get_attention_gradient)
                 module.register_forward_hook(self.get_attention)
-                module.register_backward_hook(self.get_attention_gradient)
 
         self.attentions = []
         self.attention_gradients = []
@@ -62,6 +67,8 @@ class VITAttentionGradRollout:
 
     def __call__(self, input_tensor, category_index, args):
         self.model.zero_grad()
+        input_tensor.requires_grad_(True)
+        print(f"Input tensor requires grad = {input_tensor.requires_grad_}")
         print(f"task = {args.task}")
         output = self.model(input_tensor,args.task).cpu()
         print(f"output_shape = {output.size()}")
@@ -74,5 +81,4 @@ class VITAttentionGradRollout:
         loss.backward()
         print(f"Attentions length = {len(self.attentions)}")
         print(f"Attention gradients length = {len(self.attention_gradients)}")
-        return grad_rollout(self.attentions, self.attention_gradients,
-            self.discard_ratio)
+        return grad_rollout(self.attentions, self.attention_gradients, self.discard_ratio)
