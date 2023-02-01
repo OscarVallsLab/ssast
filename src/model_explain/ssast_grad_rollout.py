@@ -4,16 +4,12 @@ import numpy as np
 
 def grad_rollout(attentions, gradients, discard_ratio):
     result = torch.eye(attentions[0].size(-1))
-    print(f"Attentions size {result.size()}")
     with torch.no_grad():
         for attention, grad in zip(attentions, gradients):                
             weights = grad
-            print(weights.max())
             attention_heads_fused = (attention*weights).mean(axis=1)
             attention_heads_fused = (attention).mean(axis=1)
             attention_heads_fused[attention_heads_fused < 0] = 0
-            print(f"Attention heads fused size {attention_heads_fused.size()}")
-
             # Drop the lowest attentions, but
             # don't drop the class token
             flat = attention_heads_fused.view(attention_heads_fused.size(0), -1)
@@ -28,17 +24,12 @@ def grad_rollout(attentions, gradients, discard_ratio):
     
     # Look at the total attention between the class token,
     # and the image patches
-    print(f"result = {result.size()}")
-    mask = result[0 , 1 :]
-    print(f"Mask size = {mask.size()}")
+    mask = result[0, 0 , 1 :].numpy()
     # In case of 224x224 image, this brings us from 196 to 14
-    width = int(mask.size(-1)**0.5)
-    print(f"Calculated width = {width}")
-    print(mask)
+    # width = int(mask.size(-1)**0.5)
     # mask = mask[0:(width**2)]
     # mask = mask.reshape((width,width)).numpy()
     mask = mask / np.max(mask)
-    print(f"Final attention mask shape = {mask.shape}")
     return mask    
 
 class VITAttentionGradRollout:
@@ -47,38 +38,26 @@ class VITAttentionGradRollout:
         self.model = model
         self.discard_ratio = discard_ratio
         for name, module in self.model.named_modules():
-            print(f"Name: {name}")
-            print(f"Module: {module}")
-            print(f"Require grad: {module.requires_grad_}")
             if attention_layer_name in name:
-                module.register_full_backward_hook(self.get_attention_gradient)
                 module.register_forward_hook(self.get_attention)
+                module.register_full_backward_hook(self.get_attention_gradient)
 
         self.attentions = []
         self.attention_gradients = []
 
     def get_attention(self, module, input, output):
-        print(f"Attentions size = {output.size()}")
         self.attentions.append(output.cpu())
 
     def get_attention_gradient(self, module, grad_input, grad_output):
-        print(f"Gradient input size = {grad_input.size()}")
         self.attention_gradients.append(grad_input[0].cpu())
 
-    def __call__(self, input_tensor, category_index, args):
+    def __call__(self, input_tensor, device, category_index, args):
         self.model.zero_grad()
-        input_tensor.requires_grad_(True)
-        print(f"Input tensor requires grad = {input_tensor.requires_grad_}")
-        print(f"task = {args.task}")
-        output = self.model(input_tensor,args.task).cpu()
-        print(f"output_shape = {output.size()}")
-        category_mask = torch.zeros(output.size())
+        input_tensor = input_tensor.to(device)
+        self.model = self.model.to(device)
+        output = self.model(input_tensor,args.task)
+        category_mask = torch.zeros(output.size()).to(device)
         category_mask[:, category_index] = 1
-        print(f"Category mask = {category_mask.size()}")
-        print(f"Output = {output.size()}")
         loss = (output*category_mask).sum()
-        loss = torch.tensor(loss,requires_grad=True)
         loss.backward()
-        print(f"Attentions length = {len(self.attentions)}")
-        print(f"Attention gradients length = {len(self.attention_gradients)}")
         return grad_rollout(self.attentions, self.attention_gradients, self.discard_ratio)

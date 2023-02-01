@@ -256,7 +256,7 @@ class ASTModel(nn.Module):
 
         # Transformer blocks
         for blk_id, blk in enumerate(self.v.blocks):
-            #print(f"Block {blk_id} = {blk}")
+            # print(f"Block {blk_id} = {blk}")
             x = blk(x)
         #print(f"Blocks output = {x.size()}")
         x = self.v.norm(x)

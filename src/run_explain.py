@@ -12,27 +12,23 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-def plot_attention_map(audio_model,audio_input,labels,args,title):
-    grad_rollout = VITAttentionGradRollout(audio_model,attention_layer_name='attn_drop',discard_ratio=0.1)
-    att_rollout = VITAttentionRollout(audio_model, discard_ratio=0.9,head_fusion='mean')
+def plot_attention_map(audio_model,audio_input,labels,args,device):
+    grad_rollout = VITAttentionGradRollout(audio_model,attention_layer_name='attn_drop',discard_ratio=0.75)
+    att_rollout = VITAttentionRollout(audio_model,attention_layer_name='attn_drop',discard_ratio=0.75,head_fusion='mean')
 
     class_index = torch.argmax(labels)
 
-    grad_mask = grad_rollout(audio_input[0:1,:,:],class_index,args)
+    grad_mask = grad_rollout(audio_input[0:1,:,:],device,class_index,args)
     att_mask = att_rollout(audio_input[0:1,:,:],args)
-    print(f"Mask shape = {att_mask.shape}")
     
-    audio_spec = np.rot90(audio_input[0,:,:].numpy())
-    print(f"Audio spectrogram shape {audio_spec.shape}")
+    audio_spec = np.rot90(audio_input[0,:,:].cpu().numpy())
 
     spec_grad_mask = np.zeros(audio_spec.shape)
     spec_att_mask = np.zeros(audio_spec.shape)
-    print(f"Spectrogram attention mask = {spec_att_mask.shape}")
     
     for i in range(audio_spec.shape[0]):
         spec_att_mask[i,:] = att_mask
         spec_grad_mask[i,:] = grad_mask        
-    print(f"Final mask shape = {spec_att_mask.shape}")
 
     att_cmap = mpl.cm.get_cmap()
     grad_cmap = mpl.cm.get_cmap()
@@ -40,43 +36,28 @@ def plot_attention_map(audio_model,audio_input,labels,args,title):
     grad_heatmap = grad_cmap(spec_grad_mask,alpha=0.2)
 
     # Plot audio input spectrogram
-    fig, axs = plt.subplots(2,1)
-    plt.title(title)
-    axs[0].imshow(audio_spec,cmap='gray',aspect='auto')
-    axs[0].imshow(att_heatmap)
-    axs[1].imshow(audio_spec,cmap='gray', aspect='auto')
-    axs[1].imshow(grad_heatmap)
+    print("Plotting spectrogram")
+    plt.figure()
+    plt.imshow(audio_spec,cmap='gray',aspect='auto')
+    plt.imshow(att_heatmap)
     plt.show()
+    
+    # plt.imshow(audio_spec,cmap='gray', aspect='auto')
+    # plt.imshow(grad_heatmap)
+    # plt.show()
     print("Spectrogram plotted")
 
 # Define validation loop
 def validate(audio_model, val_loader, args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     batch_time = AverageMeter()
-    if not isinstance(audio_model, nn.DataParallel):
-        audio_model = nn.DataParallel(audio_model)
     audio_model = audio_model.to(device)
     # switch to evaluate mode
     audio_model.eval()
     
     for i, (audio_input, labels) in enumerate(val_loader):
-        # with torch.no_grad():
         audio_input = audio_input.to(device)
-        # compute output
-        audio_output = audio_model(audio_input, args.task)
-        audio_output = torch.sigmoid(audio_output)
-        predictions = audio_output.to('cpu').detach()
-        
-        # Compare output with label
-        output_one_hot = torch.nn.functional.one_hot(torch.argmax(predictions), len(predictions[0]))
-        correct_pred =  torch.equal(output_one_hot, labels)
-
-        if correct_pred:
-            title = "Right prediction"
-        else:
-            title = "Wrong prediction"
-        audio_input = audio_input.to('cpu')
-        plot_attention_map(audio_model,audio_input,labels,args,title)
+        plot_attention_map(audio_model,audio_input,labels,args,device)
 
 # Load same args and audio config as experiment
 with open('./finetune/IEMOCAP/exp/args.pkl','rb') as file:

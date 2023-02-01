@@ -49,6 +49,7 @@ class VITAttentionRollout:
         self.attentions = []
 
     def get_attention(self, module, input, output):
+        # print(f"Attention layer output shape = {output.size()}")
         self.attentions.append(output.cpu())
 
     def __call__(self, input_tensor,args):
