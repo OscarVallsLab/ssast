@@ -30,6 +30,8 @@ def plot_attention_map(audio_model,audio_input,labels,args,device):
         spec_att_mask[i,:] = att_mask
         spec_grad_mask[i,:] = grad_mask        
 
+    mpl.use("tkagg")
+
     att_cmap = mpl.cm.get_cmap()
     grad_cmap = mpl.cm.get_cmap()
     att_heatmap = att_cmap(spec_att_mask,alpha = 0.2)
@@ -37,14 +39,16 @@ def plot_attention_map(audio_model,audio_input,labels,args,device):
 
     # Plot audio input spectrogram
     print("Plotting spectrogram")
-    plt.figure()
+    plt.figure(1)
+    plt.subplot(211)
     plt.imshow(audio_spec,cmap='gray',aspect='auto')
     plt.imshow(att_heatmap)
+    print("First subplot created")
+    plt.subplot(212)
+    plt.imshow(audio_spec,cmap='gray', aspect='auto')
+    plt.imshow(grad_heatmap)
+    print("Subplots created")
     plt.show()
-    
-    # plt.imshow(audio_spec,cmap='gray', aspect='auto')
-    # plt.imshow(grad_heatmap)
-    # plt.show()
     print("Spectrogram plotted")
 
 # Define validation loop
