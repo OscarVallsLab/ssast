@@ -7,8 +7,11 @@ def grad_rollout(attentions, gradients, discard_ratio):
     with torch.no_grad():
         for attention, grad in zip(attentions, gradients):                
             weights = grad
+            # Normalize attention and grad
+            attention = attention / torch.max(attention)
+            weights = weights / torch.max(weights)
             attention_heads_fused = (attention*weights).mean(axis=1)
-            attention_heads_fused = (attention).mean(axis=1)
+            #attention_heads_fused = (attention).mean(axis=1)
             attention_heads_fused[attention_heads_fused < 0] = 0
             # Drop the lowest attentions, but
             # don't drop the class token
@@ -33,7 +36,7 @@ def grad_rollout(attentions, gradients, discard_ratio):
     return mask    
 
 class VITAttentionGradRollout:
-    def __init__(self, model, attention_layer_name='qkv',
+    def __init__(self, model, attention_layer_name='attn_drop',
         discard_ratio=0.1):
         self.model = model
         self.discard_ratio = discard_ratio
@@ -51,7 +54,7 @@ class VITAttentionGradRollout:
     def get_attention_gradient(self, module, grad_input, grad_output):
         self.attention_gradients.append(grad_input[0].cpu())
 
-    def __call__(self, input_tensor, device, category_index, args):
+    def __call__(self, input_tensor, device, category_index, args, console):
         self.model.zero_grad()
         input_tensor = input_tensor.to(device)
         self.model = self.model.to(device)

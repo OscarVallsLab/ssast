@@ -2,7 +2,8 @@ import torch
 
 import numpy as np
 
-def rollout(attentions, discard_ratio, head_fusion):
+def rollout(attentions, discard_ratio, head_fusion, input_tensor, args, console):
+    print(f"Attention heads output {attentions[0].size()}")
     result = torch.eye(attentions[0].size(-1))
     with torch.no_grad():
         for attention in attentions:
@@ -29,12 +30,20 @@ def rollout(attentions, discard_ratio, head_fusion):
     
     # Look at the total attention between the class token,
     # and the image patches
+    print(f"Attention Mask shape {result.shape}")
     mask = result[0, 0 , 1 :].numpy()
+    
     # In case of 224x224 image, this brings us from 196 to 14
-    # width = int(mask.size(-1)**0.5)
-    # mask = mask.reshape(width, width).numpy()
+    width = int(int(input_tensor.size()[-2])/args.tstride)
+    height = int(int(input_tensor.size()[-1])/args.fstride)
+    print(f"Calculated width {width}")
+    print(f"Calculated height {height}")
+    print(f"Total mask elements {width*height}")
+    if console.mode == 'patch':
+        mask = mask[0:(width*width)]
+        mask = mask.reshape(width, width)
     mask = mask / np.max(mask)
-    return mask    
+    return mask
 
 class VITAttentionRollout:
     def __init__(self, model, attention_layer_name='attn_drop', head_fusion="mean",
@@ -52,9 +61,9 @@ class VITAttentionRollout:
         # print(f"Attention layer output shape = {output.size()}")
         self.attentions.append(output.cpu())
 
-    def __call__(self, input_tensor,args):
+    def __call__(self, input_tensor,args,console):
         self.attentions = []
         with torch.no_grad():
             output = self.model(input_tensor,args.task)
 
-        return rollout(self.attentions, self.discard_ratio, self.head_fusion)
+        return rollout(self.attentions, self.discard_ratio, self.head_fusion, input_tensor, args, console)
