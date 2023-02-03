@@ -66,7 +66,7 @@ def validate(audio_model, val_loader, args, console):
         plot_attention_map(audio_model,audio_input,labels,args,device,console)
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--mode',choices=['patch','frame'],default='frame')
+parser.add_argument('--mode',choices=['Patch','Frame'],default='Frame')
 console = parser.parse_args()
 
 # Load same args and audio config as experiment
