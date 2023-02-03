@@ -6,11 +6,17 @@ from utilities import *
 import time
 import os
 import dataloader
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--mode',default='Frame',choices=['Frame','Patch'])
+console = parser.parse_args()
 
 # Load arguments and audio config for the inference test
-with open('./finetune/IEMOCAP/exp/frame/args.pkl','rb') as file:
+with open('./finetune/IEMOCAP/exp/'+console.mode+'/args.pkl','rb') as file:
     args = pickle.load(file)
-print(args.pretrained_mdl_path)
+
+exp_dir = './finetune/IEMOCAP/exp/' + console.mode
 
 val_audio_conf = {'num_mel_bins': args.num_mel_bins, 'target_length': args.target_length, 'freqm': 0, 'timem': 0, 'mixup': 0, 'dataset': args.dataset,
                   'mode': 'evaluation', 'mean': args.dataset_mean, 'std': args.dataset_std, 'noise': False}
@@ -18,13 +24,13 @@ val_audio_conf = {'num_mel_bins': args.num_mel_bins, 'target_length': args.targe
 # Create model object and load weights from state_dict
 audio_model = ASTModel(label_dim=args.n_class, fshape=args.fshape, tshape=args.tshape, fstride=args.fstride, tstride=args.tstride,
                        input_fdim=args.num_mel_bins, input_tdim=args.target_length, model_size=args.model_size, pretrain_stage=False,
-                       load_pretrained_mdl_path='../pretrained_model/SSAST-Base-Frame-400.pth')
+                       load_pretrained_mdl_path='../pretrained_model/SSAST-Base-'+console.mode+'-400.pth')
 
 val_loader = torch.utils.data.DataLoader(
     dataloader.AudioDataset(dataset_json_file='./finetune/IEMOCAP/data/datafiles/1_fold_valid_data.json',
                             label_csv='./finetune/IEMOCAP/data/IEMOCAP_class_labels_indices.csv',
                             audio_conf=val_audio_conf),
-    batch_size=args.batch_size * 2, shuffle=False, num_workers=8, pin_memory=False)
+    batch_size=1, shuffle=False, num_workers=8, pin_memory=False)
 
 def validate(audio_model, val_loader, args, epoch):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -68,7 +74,6 @@ def validate(audio_model, val_loader, args, epoch):
         stats = calculate_stats(audio_output, target)
 
         # save the prediction here
-        exp_dir = './finetune/IEMOCAP/exp/frame'
         if os.path.exists(exp_dir+'/predictions') == False:
             os.mkdir(exp_dir+'/predictions')
             np.savetxt(exp_dir+'/predictions/target.csv', target, delimiter=',')
@@ -78,7 +83,7 @@ def validate(audio_model, val_loader, args, epoch):
 
 if args.data_eval != None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    sd = torch.load('./finetune/IEMOCAP/exp/frame/best_audio_model.pth', map_location=device)
+    sd = torch.load('./finetune/IEMOCAP/exp/'+console.mode+'/best_audio_model.pth', map_location=device)
     if not isinstance(audio_model, torch.nn.DataParallel):
         audio_model = torch.nn.DataParallel(audio_model)
     audio_model.load_state_dict(sd, strict=False)
@@ -90,6 +95,7 @@ if args.data_eval != None:
     val_acc = stats[0]['acc']
     val_mAUC = np.mean([stat['auc'] for stat in stats])
     print('---------------evaluate on the validation set---------------')
+    print(f'Validation set size {len(val_loader)}')
     print("Accuracy: {:.6f}".format(val_acc))
     print("AUC: {:.6f}".format(val_mAUC))
 
@@ -98,11 +104,12 @@ if args.data_eval != None:
         dataloader.AudioDataset(dataset_json_file='./finetune/IEMOCAP/data/datafiles/test_data.json',
                             label_csv='./finetune/IEMOCAP/data/IEMOCAP_class_labels_indices.csv',
                             audio_conf=val_audio_conf),
-    batch_size=1, shuffle=True, num_workers=4, pin_memory=True)
+    batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
     stats, _ = validate(audio_model, eval_loader, args, 'eval_set')
     eval_acc = stats[0]['acc']
     eval_mAUC = np.mean([stat['auc'] for stat in stats])
     print('---------------evaluate on the test set---------------')
+    print(f'Test set size {len(eval_loader)}')
     print("Accuracy: {:.6f}".format(eval_acc))
     print("AUC: {:.6f}".format(eval_mAUC))
     np.savetxt(exp_dir + '/test_result.csv', [val_acc, val_mAUC, eval_acc, eval_mAUC])
