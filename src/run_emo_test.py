@@ -10,31 +10,12 @@ import dataloader
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--mode',default='Frame',choices=['Frame','Patch'])
+parser.add_argument('--mode',default='avg_tok',choices=['avg_tok','cls'])
 console = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Load arguments and audio config for the inference test
-with open('./finetune/IEMOCAP/exp/'+console.mode+'/args.pkl','rb') as file:
-    args = pickle.load(file)
-
-exp_dir = './finetune/IEMOCAP/exp/' + console.mode
-
-val_audio_conf = {'num_mel_bins': args.num_mel_bins, 'target_length': args.target_length, 'freqm': 0, 'timem': 0, 'mixup': 0, 'dataset': args.dataset,
-                  'mode': 'evaluation', 'mean': args.dataset_mean, 'std': args.dataset_std, 'noise': False}
-
-# Create model object and load weights from state_dict
-audio_model = ASTModel(label_dim=args.n_class, fshape=args.fshape, tshape=args.tshape, fstride=args.fstride, tstride=args.tstride,
-                       input_fdim=args.num_mel_bins, input_tdim=args.target_length, model_size=args.model_size, pretrain_stage=False,
-                       load_pretrained_mdl_path='../pretrained_model/SSAST-Base-'+console.mode+'-400.pth')
-
-val_loader = torch.utils.data.DataLoader(
-    dataloader.AudioDataset(dataset_json_file='./finetune/IEMOCAP/data/datafiles/1_fold_valid_data.json',
-                            label_csv='./finetune/IEMOCAP/data/IEMOCAP_class_labels_indices.csv',
-                            audio_conf=val_audio_conf),
-    batch_size=1, shuffle=False, num_workers=8, pin_memory=False)
-
+# Define validation loop
 def validate(audio_model, val_loader, args, epoch):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     batch_time = AverageMeter()
@@ -87,9 +68,31 @@ def validate(audio_model, val_loader, args, epoch):
 
     return stats, loss
 
-if args.data_eval != None:
+# Start k_fold validation
+for fold in range(1,5):
+    # Load arguments and audio config for the inference test
+    exp_dir = './finetune/IEMOCAP/exp/' + console.mode + f'/{fold}_fold/results'
+    
+    with open(exp_dir+'/args.pkl','rb') as file:
+        args = pickle.load(file)
+    # Create model object
+    audio_model = ASTModel(label_dim=args.n_class, fshape=args.fshape, tshape=args.tshape, fstride=args.fstride, tstride=args.tstride,
+                        input_fdim=args.num_mel_bins, input_tdim=args.target_length, model_size=args.model_size, pretrain_stage=False,
+                        load_pretrained_mdl_path='../pretrained_model/SSAST-Base-Frame-400.pth')
+
+    # Create validation data loader
+    val_audio_conf = {'num_mel_bins': args.num_mel_bins, 'target_length': args.target_length, 'freqm': 0, 'timem': 0, 'mixup': 0, 'dataset': args.dataset,
+                    'mode': 'evaluation', 'mean': args.dataset_mean, 'std': args.dataset_std, 'noise': False}
+    
+    val_loader = torch.utils.data.DataLoader(
+        dataloader.AudioDataset(dataset_json_file=f'./finetune/IEMOCAP/data/datafiles/{fold}_fold_valid_data.json',
+                                label_csv='./finetune/IEMOCAP/data/IEMOCAP_class_labels_indices.csv',
+                                audio_conf=val_audio_conf),
+        batch_size=1, shuffle=False, num_workers=8, pin_memory=False)
+
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    sd = torch.load('./finetune/IEMOCAP/exp/'+console.mode+'/best_audio_model.pth', map_location=device)
+    sd = torch.load(exp_dir + '/models/best_audio_model.pth', map_location=device)
     if not isinstance(audio_model, torch.nn.DataParallel):
         audio_model = torch.nn.DataParallel(audio_model)
     audio_model.load_state_dict(sd, strict=False)
@@ -100,22 +103,23 @@ if args.data_eval != None:
     # note it is NOT mean of class-wise accuracy
     val_acc = stats[0]['acc']
     val_mAUC = np.mean([stat['auc'] for stat in stats])
-    print('---------------evaluate on the validation set---------------')
+    print(f'---------------evaluate {fold} fold model on the validation set---------------')
     print(f'Validation set size {len(val_loader)}')
     print("Accuracy: {:.6f}".format(val_acc))
     print("AUC: {:.6f}".format(val_mAUC))
-
+    np.savetxt(exp_dir + f'/{fold}_fold_validation_result.csv', [val_acc, val_mAUC])
+    
     # test the models on the evaluation set
-    eval_loader = torch.utils.data.DataLoader(
+    test_loader = torch.utils.data.DataLoader(
         dataloader.AudioDataset(dataset_json_file='./finetune/IEMOCAP/data/datafiles/test_data.json',
                             label_csv='./finetune/IEMOCAP/data/IEMOCAP_class_labels_indices.csv',
                             audio_conf=val_audio_conf),
     batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
-    stats, _ = validate(audio_model, eval_loader, args, 'eval_set')
+    stats, _ = validate(audio_model, test_loader, args, 'eval_set')
     eval_acc = stats[0]['acc']
     eval_mAUC = np.mean([stat['auc'] for stat in stats])
-    print('---------------evaluate on the test set---------------')
-    print(f'Test set size {len(eval_loader)}')
+    print(f'---------------evaluate {fold} fold model on the test set---------------')
+    print(f'Test set size {len(test_loader)}')
     print("Accuracy: {:.6f}".format(eval_acc))
     print("AUC: {:.6f}".format(eval_mAUC))
-    np.savetxt(exp_dir + '/test_result.csv', [val_acc, val_mAUC, eval_acc, eval_mAUC])
+    np.savetxt(exp_dir + f'/{fold}_fold_test_result.csv', [eval_acc, eval_mAUC])

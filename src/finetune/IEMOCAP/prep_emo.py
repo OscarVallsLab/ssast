@@ -33,10 +33,10 @@ for k in range(1,5):
         json.dump(train_dict,file)
         
     for index in range(len(val_df)):
-        wav_path = os.path.abspath('../../../' + train_df.iloc[index]['data'])
+        wav_path = os.path.abspath('../../../' + val_df.iloc[index]['data'])
         val_dict["data"].append({
             "wav" : wav_path,
-            "labels" : train_df.iloc[index]['class']
+            "labels" : val_df.iloc[index]['class']
         })
     
     with open(f'./data/datafiles/{k}_fold_valid_data.json','w') as file:
