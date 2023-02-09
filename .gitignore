@@ -20,3 +20,5 @@ src/finetune/superb/s3prl-master/*
 venvssast/
 .vscode/
 src/finetune/IEMOCAP/exp/
+src/finetune/IEMOCAP/*.png
+src/finetune/IEMOCAP/data/datafiles/

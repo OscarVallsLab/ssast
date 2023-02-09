@@ -20,7 +20,7 @@ console = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def plot_conf_matrix(conf_matrix,fold,set,index_dict):
-    mpl.use("tkagg")
+    mpl.use("agg")
     seaborn.set(color_codes=True)
     plt.figure(1, figsize=(9, 6))
  
@@ -98,7 +98,7 @@ def validate(audio_model, val_loader, args, epoch):
     return stats, loss, conf_matrix
 
 # Start k_fold validation
-for fold in range(1,2):
+for fold in range(1,5):
     # Load arguments and audio config for the inference test
     exp_dir = './finetune/IEMOCAP/exp/' + console.mode + f'/{fold}_fold/results'
     
@@ -129,7 +129,7 @@ for fold in range(1,2):
                                 label_csv='./finetune/IEMOCAP/data/IEMOCAP_class_labels_indices.csv',
                                 audio_conf=val_audio_conf)
         train_loader = torch.utils.data.DataLoader(train_dataset,
-        batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
+        batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
         stats, _, train_conf_matrix = validate(audio_model, train_loader, args, 'eval_set')
         plot_conf_matrix(train_conf_matrix,fold=fold,set='train',index_dict=train_dataset.index_dict)
         train_acc = stats[0]['acc']
