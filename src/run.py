@@ -85,7 +85,7 @@ parser.add_argument("--wa", help='if do weight averaging in finetuning', type=as
 parser.add_argument("--wa_start", type=int, default=16, help="which epoch to start weight averaging in finetuning")
 parser.add_argument("--wa_end", type=int, default=30, help="which epoch to end weight averaging in finetuning")
 parser.add_argument("--loss", type=str, default="BCE", help="the loss function for finetuning, depend on the task", choices=["BCE", "CE"])
-
+parser.add_argument("--drop_rate",default=0.,help="Dropout probability while training")
 args = parser.parse_args()
 
 # # dataset spectrogram mean and std, used to normalize the input
@@ -130,12 +130,12 @@ if 'pretrain' in args.task:
         print('The num_mel_bins {:d} and fshape {:d} are same, masking a typical time frame, not using cluster masking.'.format(args.num_mel_bins, args.fshape))
     # no label dimension needed as it is self-supervised, fshape=fstride and tshape=tstride
     audio_model = ASTModel(fshape=args.fshape, tshape=args.tshape, fstride=args.fshape, tstride=args.tshape,
-                       input_fdim=args.num_mel_bins, input_tdim=args.target_length, model_size=args.model_size, pretrain_stage=True)
+                       input_fdim=args.num_mel_bins, input_tdim=args.target_length, model_size=args.model_size, pretrain_stage=True, drop_rate = args.drop_rate)
 # in the fine-tuning stage
 else:
     audio_model = ASTModel(label_dim=args.n_class, fshape=args.fshape, tshape=args.tshape, fstride=args.fstride, tstride=args.tstride,
                        input_fdim=args.num_mel_bins, input_tdim=args.target_length, model_size=args.model_size, pretrain_stage=False,
-                       load_pretrained_mdl_path=args.pretrained_mdl_path)
+                       load_pretrained_mdl_path=args.pretrained_mdl_path, drop_rate=args.drop_rate)
 
 if not isinstance(audio_model, torch.nn.DataParallel):
     audio_model = torch.nn.DataParallel(audio_model)

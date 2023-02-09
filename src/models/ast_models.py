@@ -55,7 +55,7 @@ class ASTModel(nn.Module):
     def __init__(self, label_dim=527,
                  fshape=128, tshape=2, fstride=128, tstride=2,
                  input_fdim=128, input_tdim=1024, model_size='base',
-                 pretrain_stage=True, load_pretrained_mdl_path=None):
+                 pretrain_stage=True, drop_rate = 0., load_pretrained_mdl_path=None):
 
         super(ASTModel, self).__init__()
         assert timm.__version__ == '0.4.5', 'Please use timm == 0.4.5, the code might not be compatible with newer versions.'
@@ -69,22 +69,22 @@ class ASTModel(nn.Module):
                 raise ValueError('Setting load_pretrained_mdl_path at pretraining stage is useless, pretraining is always from scratch, please change it to None.')
             if fstride != fshape or tstride != tshape:
                 raise ValueError('fstride != fshape or tstride != tshape, they must be same at the pretraining stage, patch split overlapping is not supported.')
-
+            self.drop_rate = drop_rate
             # if AudioSet pretraining is not used (but ImageNet pretraining may still apply)
             if model_size == 'tiny':
-                self.v = timm.create_model('vit_deit_tiny_distilled_patch16_224', pretrained=False)
+                self.v = timm.create_model('vit_deit_tiny_distilled_patch16_224', pretrained=False, drop_rate=self.drop_rate)
                 self.heads, self.depth = 3, 12
                 self.cls_token_num = 2
             elif model_size == 'small':
-                self.v = timm.create_model('vit_deit_small_distilled_patch16_224', pretrained=False)
+                self.v = timm.create_model('vit_deit_small_distilled_patch16_224', pretrained=False, drop_rate=self.drop_rate)
                 self.heads, self.depth = 6, 12
                 self.cls_token_num = 2
             elif model_size == 'base':
-                self.v = timm.create_model('vit_deit_base_distilled_patch16_384', pretrained=False)
+                self.v = timm.create_model('vit_deit_base_distilled_patch16_384', pretrained=False, drop_rate=self.drop_rate)
                 self.heads, self.depth = 12, 12
                 self.cls_token_num = 2
             elif model_size == 'base_nokd':
-                self.v = timm.create_model('vit_deit_base_patch16_384', pretrained=False)
+                self.v = timm.create_model('vit_deit_base_patch16_384', pretrained=False, drop_rate=self.drop_rate)
                 self.heads, self.depth = 12, 12
                 self.cls_token_num = 1
             else:

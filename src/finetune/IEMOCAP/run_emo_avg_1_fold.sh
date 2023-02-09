@@ -24,17 +24,18 @@ dataset=iemocap
 dataset_mean=-6.845978
 dataset_std=5.5654526
 target_length=512
-noise=False
+noise=True
 tr_data=./data/datafiles/1_fold_train_data.json
 val_data=./data/datafiles/1_fold_valid_data.json
 eval_data=./data/datafiles/test_data.json
 
-bal=none
-lr=2.5e-4
+bal=None
+lr=1e-4
+drop_rate=0.2
 # Masks length
 freqm=48
 timem=48
-mixup=0.6
+mixup=0
 epoch=30
 batch_size=16
 fshape=128
@@ -47,7 +48,10 @@ model_size=base
 head_lr=1
 
 pretrain_path=./${pretrain_exp}/${pretrain_model}.pth
-exp_dir=./exp/test01-${dataset}-f$fstride-t$tstride-b$batch_size-lr${lr}-${task}-${model_size}-$pretrain_exp-${pretrain_model}-${head_lr}x-noise${noise}
+
+# 1-fold
+#exp_dir=./exp/avg_tok/1_fold/test01-${dataset}-f$fstride-t$tstride-b$batch_size-lr${lr}-${task}-${model_size}-$pretrain_exp-${pretrain_model}-${head_lr}x-noise${noise}
+exp_dir=./exp/avg_tok/1_fold/results/
 
 CUDA_CACHE_DISABLE=1 python3 -W ignore ../../run.py --dataset ${dataset} \
 --data-train ${tr_data} --data-val ${val_data} --data-eval ${eval_data} --exp-dir $exp_dir \
@@ -59,4 +63,5 @@ CUDA_CACHE_DISABLE=1 python3 -W ignore ../../run.py --dataset ${dataset} \
 --pretrained_mdl_path ${pretrain_path} \
 --dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --target_length ${target_length} \
 --num_mel_bins 128 --head_lr ${head_lr} --noise ${noise} \
---lrscheduler_start 5 --lrscheduler_step 1 --lrscheduler_decay 0.85 --wa False --loss BCE --metrics acc
+--lrscheduler_start 5 --lrscheduler_step 1 --lrscheduler_decay 0.9 --wa False --loss CE --metrics acc \
+--drop_rate ${drop_rate}
