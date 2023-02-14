@@ -29,6 +29,7 @@ tr_data=./data/datafiles/1_fold_train_data.json
 val_data=./data/datafiles/1_fold_valid_data.json
 eval_data=./data/datafiles/test_data.json
 
+frozen_blocks=
 bal=None
 lr=1e-4
 # Masks length
@@ -62,7 +63,7 @@ CUDA_CACHE_DISABLE=1 python3 -W ignore ../../run.py --dataset ${dataset} \
 --pretrained_mdl_path ${pretrain_path} \
 --dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --target_length ${target_length} \
 --num_mel_bins 128 --head_lr ${head_lr} --noise ${noise} \
---lrscheduler_start 5 --lrscheduler_step 1 --lrscheduler_decay 0.9 --wa False --loss CE --metrics acc
+--lrscheduler_start 5 --lrscheduler_step 1 --lrscheduler_decay 0.9 --wa False --loss CE --metrics acc --frozen_blocks ${frozen_blocks}
 
 # 2-fold
 tr_data=./data/datafiles/2_fold_train_data.json

@@ -29,6 +29,7 @@ tr_data=./data/datafiles/1_fold_train_data.json
 val_data=./data/datafiles/1_fold_valid_data.json
 eval_data=./data/datafiles/test_data.json
 
+frozen_blocks=
 bal=None
 lr=1e-4
 # Masks length

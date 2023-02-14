@@ -45,7 +45,23 @@ def train(audio_model, train_loader, test_loader, args):
     if not isinstance(audio_model, nn.DataParallel):
         audio_model = nn.DataParallel(audio_model)
 
+    # Freeze transformer blocks for fine-tuning
+    for name,parameters in audio_model.named_parameters():
+        print(name)
+        for block_num in range(args.frozen_blocks):
+            if "module.v.patch_embed.proj" in name:
+                parameters.requires_grad = False
+                print("Frozen")
+            elif f"module.v.blocks.{block_num}" in name:
+                parameters.requires_grad = False
+                print(f"Frozen")
+
+    for name, module in audio_model.named_modules():
+        if module.requires_grad_ == True:
+            print(f"Module {name} is trainable")
+
     audio_model = audio_model.to(device)
+    
     # Set up the optimizer
     trainables = [p for p in audio_model.parameters() if p.requires_grad]
     print('Total parameter number is : {:.3f} million'.format(sum(p.numel() for p in audio_model.parameters()) / 1e6))

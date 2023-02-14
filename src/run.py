@@ -86,6 +86,7 @@ parser.add_argument("--wa_start", type=int, default=16, help="which epoch to sta
 parser.add_argument("--wa_end", type=int, default=30, help="which epoch to end weight averaging in finetuning")
 parser.add_argument("--loss", type=str, default="BCE", help="the loss function for finetuning, depend on the task", choices=["BCE", "CE"])
 parser.add_argument("--drop_rate",default=0.,help="Dropout probability while training")
+parser.add_argument("--frozen_blocks",default=0,type=int,help="Number of transformer blocks to freeze while fine-tuning")
 args = parser.parse_args()
 
 # # dataset spectrogram mean and std, used to normalize the input

@@ -44,9 +44,9 @@ def plot_conf_matrix(conf_matrix,fold,set,index_dict):
 def validate(audio_model, val_loader, args, epoch):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     batch_time = AverageMeter()
-    if not isinstance(audio_model, nn.DataParallel):
-        audio_model = nn.DataParallel(audio_model)
-    audio_model = audio_model.to(device)
+    # if not isinstance(audio_model, nn.DataParallel):
+    #     audio_model = nn.DataParallel(audio_model)
+    # audio_model = audio_model.to(device)
     # switch to evaluate mode
     audio_model.eval()
 
@@ -62,6 +62,7 @@ def validate(audio_model, val_loader, args, epoch):
 
             if console.model_sum and i == 0:
                 summary(audio_model,audio_input,args.task)
+            
             # compute output
             audio_output = audio_model(audio_input, args.task)
             audio_output = torch.sigmoid(audio_output)
@@ -114,6 +115,8 @@ for fold in range(1,2):
                     experiments.append(exp_name)
         for exp_name in experiments:
             print(f"Performing experiments on {exp_name}")
+    else:
+        experiments = experiments_dir
 
     for exp_name in experiments:
         exp_dir = base_dir + exp_name + f'/{fold}_fold/'
