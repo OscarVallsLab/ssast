@@ -21,4 +21,5 @@ venvssast/
 .vscode/
 src/finetune/IEMOCAP/exp/
 src/finetune/IEMOCAP/*.png
-src/finetune/IEMOCAP/data/datafiles/
+src/finetune/IEMOCAP/data/datafiles/*.json
+src/finetune/IEMOCAP/data/datafiles/*.csv

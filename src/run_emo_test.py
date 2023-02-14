@@ -11,11 +11,13 @@ import argparse
 import seaborn
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import torchaudio
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--mode',default='avg_tok',choices=['avg_tok','cls_tok'])
-parser.add_argument('--model_sum', default=False)
+parser.add_argument('--model_sum', action='store_true')
 parser.add_argument('--train_stats', action='store_true')
+parser.add_argument('--exp_num', nargs='+', type=int, required=False)
 console = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -98,82 +100,96 @@ def validate(audio_model, val_loader, args, epoch):
     return stats, loss, conf_matrix
 
 # Start k_fold validation
-for fold in range(1,5):
+for fold in range(1,2):
     # Load arguments and audio config for the inference test
-    exp_dir = './finetune/IEMOCAP/exp/' + console.mode + f'/{fold}_fold/results'
-    
-    with open(exp_dir+'/args.pkl','rb') as file:
-        args = pickle.load(file)
-    
-    # Create model object
-    audio_model = ASTModel(label_dim=args.n_class, fshape=args.fshape, tshape=args.tshape, fstride=args.fstride, tstride=args.tstride,
-                        input_fdim=args.num_mel_bins, input_tdim=args.target_length, model_size=args.model_size, pretrain_stage=False,
-                        load_pretrained_mdl_path='../pretrained_model/SSAST-Base-Frame-400.pth')
+    base_dir = './finetune/IEMOCAP/exp/' + console.mode + '/'
+    experiments_dir = os.listdir(base_dir)
+    experiments = []
+    # Select models to test
+    if console.exp_num:
+        print(console.exp_num)
+        for exp_num in console.exp_num:
+            for exp_name in experiments_dir:
+                if f"test_{exp_num}" in exp_name:
+                    experiments.append(exp_name)
+        for exp_name in experiments:
+            print(f"Performing experiments on {exp_name}")
 
-    # Load audio config dict
-    val_audio_conf = {'num_mel_bins': args.num_mel_bins, 'target_length': args.target_length, 'freqm': 0, 'timem': 0, 'mixup': 0, 'dataset': args.dataset,
-                    'mode': 'evaluation', 'mean': args.dataset_mean, 'std': args.dataset_std, 'noise': False}
-    # Replicate training config
-    args.loss_fn = torch.nn.BCEWithLogitsLoss()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    # Load state dictionary for the model
-    sd = torch.load(exp_dir + '/models/best_audio_model.pth', map_location=device)
-    if not isinstance(audio_model, torch.nn.DataParallel):
-        audio_model = torch.nn.DataParallel(audio_model)
-    audio_model.load_state_dict(sd, strict=False)
+    for exp_name in experiments:
+        exp_dir = base_dir + exp_name + f'/{fold}_fold/'
+        with open(exp_dir+'args.pkl','rb') as file:
+            args = pickle.load(file)
+        
+        # Create model object
+        audio_model = ASTModel(label_dim=args.n_class, fshape=args.fshape, tshape=args.tshape, fstride=args.fstride, tstride=args.tstride,
+                            input_fdim=args.num_mel_bins, input_tdim=args.target_length, model_size=args.model_size, pretrain_stage=False,
+                            load_pretrained_mdl_path='../pretrained_model/SSAST-Base-Frame-400.pth')
 
-    # See training stats to evaluate overfitting
-    if console.train_stats:
-        train_dataset = dataloader.AudioDataset(dataset_json_file=f'./finetune/IEMOCAP/data/datafiles/{fold}_fold_train_data.json',
+        # Load audio config dict
+        val_audio_conf = {'num_mel_bins': args.num_mel_bins, 'target_length': args.target_length, 'freqm': 0, 'timem': 0, 'mixup': 0, 'dataset': args.dataset,
+                        'mode': 'evaluation', 'mean': args.dataset_mean, 'std': args.dataset_std, 'noise': False}
+        # Replicate training config
+        args.loss_fn = torch.nn.BCEWithLogitsLoss()
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        # Load state dictionary for the model
+        sd = torch.load(exp_dir + 'models/best_audio_model.pth', map_location=device)
+        if not isinstance(audio_model, torch.nn.DataParallel):
+            audio_model = torch.nn.DataParallel(audio_model)
+        audio_model.load_state_dict(sd, strict=False)
+
+        # See training stats to evaluate overfitting
+        if console.train_stats:
+            train_dataset = dataloader.AudioDataset(dataset_json_file=f'./finetune/IEMOCAP/data/datafiles/{fold}_fold_train_data.json',
+                                    label_csv='./finetune/IEMOCAP/data/IEMOCAP_class_labels_indices.csv',
+                                    audio_conf=val_audio_conf)
+            train_loader = torch.utils.data.DataLoader(train_dataset,
+            batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
+            stats, _, train_conf_matrix = validate(audio_model, train_loader, args, 'eval_set')
+            plot_conf_matrix(train_conf_matrix,fold=fold,set='train',index_dict=train_dataset.index_dict)
+            train_acc = stats[0]['acc']
+            train_mAUC = np.mean([stat['auc'] for stat in stats])
+        
+        # Create validation data loader
+        val_dataset = dataloader.AudioDataset(dataset_json_file=f'./finetune/IEMOCAP/data/datafiles/{fold}_fold_valid_data.json',
                                 label_csv='./finetune/IEMOCAP/data/IEMOCAP_class_labels_indices.csv',
                                 audio_conf=val_audio_conf)
-        train_loader = torch.utils.data.DataLoader(train_dataset,
+        
+        val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=8, pin_memory=False)
+        
+        # Evaluate model on the validation set
+        stats, _, val_conf_matrix = validate(audio_model, val_loader, args, 'valid_set')
+        plot_conf_matrix(val_conf_matrix,fold=fold,set='validation',index_dict=val_dataset.index_dict)
+
+        # note it is NOT mean of class-wise accuracy
+        val_acc = stats[0]['acc']
+        val_mAUC = np.mean([stat['auc'] for stat in stats])
+        
+        # test the models on the test set
+        test_dataset = dataloader.AudioDataset(dataset_json_file='./finetune/IEMOCAP/data/datafiles/test_data.json',
+                                label_csv='./finetune/IEMOCAP/data/IEMOCAP_class_labels_indices.csv',
+                                audio_conf=val_audio_conf)
+        test_loader = torch.utils.data.DataLoader(test_dataset,
         batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
-        stats, _, train_conf_matrix = validate(audio_model, train_loader, args, 'eval_set')
-        plot_conf_matrix(train_conf_matrix,fold=fold,set='train',index_dict=train_dataset.index_dict)
-        train_acc = stats[0]['acc']
-        train_mAUC = np.mean([stat['auc'] for stat in stats])
-        print(f'---------------evaluate {fold} fold model on the training set---------------')
-        print(f'Test set size {len(train_loader)}')
-        print("Accuracy: {:.6f}".format(train_acc))
-        print("AUC: {:.6f}".format(train_mAUC))
-    
-    # Create validation data loader
-    val_dataset = dataloader.AudioDataset(dataset_json_file=f'./finetune/IEMOCAP/data/datafiles/{fold}_fold_valid_data.json',
-                            label_csv='./finetune/IEMOCAP/data/IEMOCAP_class_labels_indices.csv',
-                            audio_conf=val_audio_conf)
-    
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=8, pin_memory=False)
-    
-    # Evaluate model on the validation set
-    stats, _, val_conf_matrix = validate(audio_model, val_loader, args, 'valid_set')
-    plot_conf_matrix(val_conf_matrix,fold=fold,set='validation',index_dict=val_dataset.index_dict)
+        stats, loss, test_conf_matrix = validate(audio_model, test_loader, args, 'eval_set')
+        plot_conf_matrix(test_conf_matrix,fold=fold,set='test',index_dict=test_dataset.index_dict)
 
-    # note it is NOT mean of class-wise accuracy
-    val_acc = stats[0]['acc']
-    val_mAUC = np.mean([stat['auc'] for stat in stats])
-    
-    # test the models on the test set
-    test_dataset = dataloader.AudioDataset(dataset_json_file='./finetune/IEMOCAP/data/datafiles/test_data.json',
-                            label_csv='./finetune/IEMOCAP/data/IEMOCAP_class_labels_indices.csv',
-                            audio_conf=val_audio_conf)
-    test_loader = torch.utils.data.DataLoader(test_dataset,
-    batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
-    stats, loss, test_conf_matrix = validate(audio_model, test_loader, args, 'eval_set')
-    plot_conf_matrix(test_conf_matrix,fold=fold,set='test',index_dict=test_dataset.index_dict)
-
-    eval_acc = stats[0]['acc']
-    eval_mAUC = np.mean([stat['auc'] for stat in stats])
-    
-    # Print and save results
-    print(f'---------------evaluate {fold} fold model on the validation set---------------')
-    print(f'Validation set size {len(val_loader)}')
-    print("Accuracy: {:.6f}".format(val_acc))
-    print("AUC: {:.6f}".format(val_mAUC))
-    np.savetxt(exp_dir + f'/{fold}_fold_validation_result.csv', [val_acc, val_mAUC])
-    print(f'---------------evaluate {fold} fold model on the test set---------------')
-    print(f'Test set size {len(test_loader)}')
-    print("Accuracy: {:.6f}".format(eval_acc))
-    print("AUC: {:.6f}".format(eval_mAUC))
-    np.savetxt(exp_dir + f'/{fold}_fold_test_result.csv', [eval_acc, eval_mAUC])
+        eval_acc = stats[0]['acc']
+        eval_mAUC = np.mean([stat['auc'] for stat in stats])
+        
+        # Print and save results
+        print(f"Experiment {exp_name}")
+        if console.train_stats:
+            print(f'---------------evaluate {fold} fold model on the training set---------------')
+            print(f'Test set size {len(train_loader)}')
+            print("Accuracy: {:.6f}".format(train_acc))
+        print(f'---------------evaluate {fold} fold model on the validation set---------------')
+        print(f'Validation set size {len(val_loader)}')
+        print("Accuracy: {:.6f}".format(val_acc))
+        print("AUC: {:.6f}".format(val_mAUC))
+        np.savetxt(exp_dir + f'{fold}_fold_validation_result.csv', [val_acc])
+        print(f'---------------evaluate {fold} fold model on the test set---------------')
+        print(f'Test set size {len(test_loader)}')
+        print("Accuracy: {:.6f}".format(eval_acc))
+        print("AUC: {:.6f}".format(eval_mAUC))
+        np.savetxt(exp_dir + f'{fold}_fold_test_result.csv', [eval_acc])
