@@ -30,7 +30,6 @@ eval_data=./data/datafiles/test_data.json
 
 
 bal=None
-lr=1e-4
 # Masks length
 freqm=48
 timem=48
