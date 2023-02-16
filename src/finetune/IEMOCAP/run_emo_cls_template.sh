@@ -30,7 +30,6 @@ eval_data=./data/datafiles/test_data.json
 
 
 bal=None
-lr=1e-4
 # Masks length
 freqm=48
 timem=48
@@ -54,11 +53,11 @@ lr=1e-3
 lr_decay=0.75
 drop_rate=0.4
 noise=True
-mixup=0.4
+mixup=0
 
 # Experiment directory
-exp_name=test_${ft_exp}-f$fstride-t$tstride-b$batch_size-${model_size}-${task}-lr${lr}-lr_decay${lr_decay}-noise${noise}-drop${drop_rate}-mix${mixup}
-exp_dir=./exp/avg_tok/${exp_name}/1_fold
+exp_name=test_${ft_exp}-f$fstride-t$tstride-b$batch_size-${model_size}-${task}-lr${lr}-lr_decay${lr_decay}-noise${noise}-drop${drop_rate}-fr_blocks${fr_blocks}
+exp_dir=./exp/cls_tok/${exp_name}/1_fold
 
 CUDA_CACHE_DISABLE=1 python3 -W ignore ../../run.py --dataset ${dataset} \
 --data-train ${tr_data} --data-val ${val_data} --data-eval ${eval_data} --exp-dir $exp_dir \
