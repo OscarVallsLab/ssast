@@ -17,6 +17,8 @@ import numpy as np
 import pickle
 from torch.cuda.amp import autocast,GradScaler
 
+IEMOCAP_CLASS_WEIGHTS = [0.76851852, 0.91937669, 0.85049684, 0.85298103, 0.85907859, 0.74954833]
+
 def train(audio_model, train_loader, test_loader, args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print('running on ' + str(device))
@@ -118,6 +120,8 @@ def train(audio_model, train_loader, test_loader, args):
     if args.loss == 'BCE':
         loss_fn = nn.BCEWithLogitsLoss()
     elif args.loss == 'CE':
+        if args.dataset == 'iemocap':
+            loss_fn = nn.CrossEntropyLoss(weight=IEMOCAP_CLASS_WEIGHTS)
         loss_fn = nn.CrossEntropyLoss()
     args.loss_fn = loss_fn
 
