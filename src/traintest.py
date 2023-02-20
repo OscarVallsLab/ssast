@@ -49,18 +49,11 @@ def train(audio_model, train_loader, test_loader, args):
 
     # Freeze transformer blocks for fine-tuning
     for name,parameters in audio_model.named_parameters():
-        print(name)
         for block_num in range(args.frozen_blocks):
             if "module.v.patch_embed.proj" in name:
                 parameters.requires_grad = False
-                print("Frozen")
             elif f"module.v.blocks.{block_num}" in name:
                 parameters.requires_grad = False
-                print(f"Frozen")
-
-    for name, module in audio_model.named_modules():
-        if module.requires_grad_ == True:
-            print(f"Module {name} is trainable")
 
     audio_model = audio_model.to(device)
     
@@ -121,7 +114,8 @@ def train(audio_model, train_loader, test_loader, args):
         loss_fn = nn.BCEWithLogitsLoss()
     elif args.loss == 'CE':
         if args.dataset == 'iemocap':
-            loss_fn = nn.CrossEntropyLoss(weight=IEMOCAP_CLASS_WEIGHTS)
+            print("Using class weighted classes to compute loss function")
+            loss_fn = nn.CrossEntropyLoss(weight=torch.tensor(IEMOCAP_CLASS_WEIGHTS))
         loss_fn = nn.CrossEntropyLoss()
     args.loss_fn = loss_fn
 
