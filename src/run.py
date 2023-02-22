@@ -104,7 +104,11 @@ val_audio_conf = {'num_mel_bins': args.num_mel_bins, 'target_length': args.targe
 # if use balanced sampling, note - self-supervised pretraining should not use balance sampling as it implicitly leverages the label information.
 if args.bal == 'bal':
     print('balanced sampler is being used')
-    samples_weight = np.loadtxt(args.data_train[:-5]+'_weight.csv', delimiter=',')
+    if args.dataset == 'iemocap':
+        IEMOCAP_CLASS_WEIGHTS = [0.76851852, 0.91937669, 0.85049684, 0.85298103, 0.85907859, 0.74954833]
+        samples_weight = np.array(IEMOCAP_CLASS_WEIGHTS)
+    else:
+        samples_weight = np.loadtxt(args.data_train[:-5]+'_weight.csv', delimiter=',')
     sampler = WeightedRandomSampler(samples_weight, len(samples_weight), replacement=True)
 
     train_loader = torch.utils.data.DataLoader(
