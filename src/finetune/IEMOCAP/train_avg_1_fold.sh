@@ -21,8 +21,8 @@ pretrain_exp=
 pretrain_model=SSAST-Base-Frame-400
 
 dataset=iemocap
-dataset_mean=-6.845978
-dataset_std=5.5654526
+dataset_mean=-1.3735e-05
+dataset_std=0.0429
 target_length=512
 tr_data=./data/datafiles/1_fold_train_data.json
 val_data=./data/datafiles/1_fold_valid_data.json
