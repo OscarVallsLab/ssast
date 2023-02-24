@@ -17,6 +17,8 @@ import numpy as np
 import pickle
 from torch.cuda.amp import autocast,GradScaler
 
+IEMOCAP_CLASS_WEIGHTS = [0.76851852, 0.91937669, 0.85049684, 0.85298103, 0.85907859, 0.74954833]
+
 def train(audio_model, train_loader, test_loader, args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print('running on ' + str(device))
@@ -47,18 +49,11 @@ def train(audio_model, train_loader, test_loader, args):
 
     # Freeze transformer blocks for fine-tuning
     for name,parameters in audio_model.named_parameters():
-        print(name)
         for block_num in range(args.frozen_blocks):
             if "module.v.patch_embed.proj" in name:
                 parameters.requires_grad = False
-                print("Frozen")
             elif f"module.v.blocks.{block_num}" in name:
                 parameters.requires_grad = False
-                print(f"Frozen")
-
-    for name, module in audio_model.named_modules():
-        if module.requires_grad_ == True:
-            print(f"Module {name} is trainable")
 
     audio_model = audio_model.to(device)
     
@@ -118,7 +113,11 @@ def train(audio_model, train_loader, test_loader, args):
     if args.loss == 'BCE':
         loss_fn = nn.BCEWithLogitsLoss()
     elif args.loss == 'CE':
-        loss_fn = nn.CrossEntropyLoss()
+        if args.dataset == 'iemocap':
+            print("Using class weighted classes to compute loss function")
+            loss_fn = nn.CrossEntropyLoss(weight=torch.tensor(IEMOCAP_CLASS_WEIGHTS).cuda())
+        else:
+            loss_fn = nn.CrossEntropyLoss()
     args.loss_fn = loss_fn
 
     print('now training with {:s}, main metrics: {:s}, loss function: {:s}, learning rate scheduler: {:s}'.format(str(args.dataset), str(main_metrics), str(loss_fn), str(scheduler)))
