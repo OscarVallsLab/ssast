@@ -26,7 +26,8 @@ console = parser.parse_args()
 
 exp_name = f'{console.n_epochs}_epochs_bal_{console.balance}_lr_{console.lr}_batch_size_{console.batch_size}_dropout_{console.dropout}'
 
-os.mkdir(f'./finetune/IEMOCAP/student/results/{exp_name}/')
+if not os.path.exists(f'./finetune/IEMOCAP/student/results/{exp_name}/'):
+    os.mkdir(f'./finetune/IEMOCAP/student/results/{exp_name}/')
 
 teacher_dir = './finetune/IEMOCAP/teacher/'
 with open(teacher_dir+'args.pkl','rb') as file:
@@ -86,7 +87,7 @@ train_acc = np.zeros((num_epochs,1))
 val_acc = np.zeros((num_epochs,1))
 
 activation = nn.Softmax(dim=1)
-best_loss = 1_000_000
+best_val_loss = 1_000_000
 for epoch in range(num_epochs):
     # Training loop
     student.train()
@@ -148,11 +149,50 @@ for epoch in range(num_epochs):
     train_epoch_losses[epoch] = torch.mean(train_step_losses)
     val_epoch_losses[epoch] = torch.mean(val_step_losses)
 
-    if val_epoch_losses[epoch] < best_loss:
-        best_loss = val_epoch_losses[epoch]
+    if val_epoch_losses[epoch] < best_val_loss:
+        best_train_acc = train_acc[epoch]
+        best_val_acc = val_acc[epoch]
+        best_train_loss = train_epoch_losses[epoch]
+        best_val_loss = val_epoch_losses[epoch]
         best_student = student
 
     print(f"Epoch {epoch} // Training --> loss = {train_epoch_losses[epoch]} accuracy = {train_acc[epoch]} // Validation --> loss = {val_epoch_losses[epoch]} accuracy = {val_acc[epoch]}")
+
+test_dataset = dataloader.AudioDataset(dataset_json_file=f'./finetune/IEMOCAP/data/datafiles/test_data.json',
+                                    label_csv='./finetune/IEMOCAP/data/IEMOCAP_class_labels_indices.csv',
+                                    audio_conf=val_audio_conf)
+test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=console.batch_size, shuffle=False, num_workers=4, pin_memory=True)
+
+best_student.eval()
+test_step_losses = torch.zeros((len(test_loader),1))
+progress_bar = tqdm(range(len(test_loader)))
+test_predictions = np.empty((1,6))
+test_labels = np.empty((1,6))
+for i, (input, label) in enumerate(test_loader):
+    input = input.to(device)
+    label = label.to(device)
+
+    with torch.no_grad():
+        target_latent, target_pred = teacher_model(input,task='ft_avgtok')
+        input = input[:,None, :]
+        latent, logits = best_student(input)
+        pred = activation(logits)
+        loss = loss_fn(logits,latent,label,target_latent)
+        
+    test_step_losses[i] = loss.detach()
+
+    progress_bar.update(1)
+
+    test_predictions = np.concatenate((test_predictions,pred.detach().cpu().numpy()),axis=0)
+    test_labels = np.concatenate((test_labels,label.detach().cpu().numpy()),axis=0)
+
+test_loss = torch.mean(test_step_losses)
+test_acc = accuracy(np.argmax(test_labels,axis=1),np.argmax(test_predictions,axis=1),normalize=True)
+
+
+with open(f'./finetune/IEMOCAP/student/results/{exp_name}/metrics.txt',mode='w') as f:
+    f.write(f"Training --> loss = {best_train_loss} accuracy = {best_train_acc} // Validation --> loss = {best_val_loss} accuracy = {best_val_acc} // Test --> loss = {test_loss} accuracy = {test_acc}")
+    f.close()
 
 torch.save(best_student.state_dict(),f'./finetune/IEMOCAP/student/results/{exp_name}/best_model.pth')
 
