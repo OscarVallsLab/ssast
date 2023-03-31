@@ -26,7 +26,7 @@ console = parser.parse_args()
 
 exp_name = f'{console.n_epochs}_epochs_bal_{console.balance}_lr_{console.lr}_batch_size_{console.batch_size}_dropout_{console.dropout}'
 
-os.mkdir(f'./finetune/IEMOCAP/student/{exp_name}/')
+os.mkdir(f'./finetune/IEMOCAP/student/results/{exp_name}/')
 
 teacher_dir = './finetune/IEMOCAP/teacher/'
 with open(teacher_dir+'args.pkl','rb') as file:
@@ -154,7 +154,7 @@ for epoch in range(num_epochs):
 
     print(f"Epoch {epoch} // Training --> loss = {train_epoch_losses[epoch]} accuracy = {train_acc[epoch]} // Validation --> loss = {val_epoch_losses[epoch]} accuracy = {val_acc[epoch]}")
 
-torch.save(best_student.state_dict(),f'./finetune/IEMOCAP/student/{exp_name}/best_model.pth')
+torch.save(best_student.state_dict(),f'./finetune/IEMOCAP/student/results/{exp_name}/best_model.pth')
 
 mpl.use("agg")
 plt.figure()
@@ -162,4 +162,4 @@ plt.plot(range(num_epochs),train_epoch_losses,label='train loss')
 plt.plot(range(num_epochs),val_epoch_losses, label='validation loss')
 plt.title("Training and validation loss")
 plt.legend()
-plt.savefig(f'./finetune/IEMOCAP/student/{exp_name}/loss_curves.png')
+plt.savefig(f'./finetune/IEMOCAP/student/results/{exp_name}/loss_curves.png')
