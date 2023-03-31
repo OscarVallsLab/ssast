@@ -6,3 +6,4 @@
 # @File    : __init__.py
 
 from .ast_models import *
+from .vit_student_model import *

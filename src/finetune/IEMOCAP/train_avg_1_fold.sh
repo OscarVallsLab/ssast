@@ -42,7 +42,7 @@ tstride=1
 
 task=ft_avgtok
 model_size=base
-head_lr=10
+head_lr=
 pretrain_path=./${pretrain_exp}/${pretrain_model}.pth
 
 ##### EXPERIMENT 15 ####

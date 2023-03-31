@@ -262,10 +262,10 @@ class ASTModel(nn.Module):
         x = self.v.norm(x)
         #print(f"Norm output = {x.size()}")
         # average output of all tokens except cls token(s)
-        x = torch.mean(x[:, self.cls_token_num:, :], dim=1)
+        rep = torch.mean(x[:, self.cls_token_num:, :], dim=1)
         #print(f"Mean pooling output = {x.size()}")
-        x = self.mlp_head(x)
-        return x
+        pred = self.mlp_head(rep)
+        return rep, pred
 
     def finetuningcls(self, x):
         B = x.shape[0]
