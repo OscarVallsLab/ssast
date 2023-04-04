@@ -19,7 +19,7 @@ src/finetune/superb/s3prl-master/*
 .idea/*
 venvssast/
 .vscode/
-src/finetune/IEMOCAP/exp/
+src/finetune/IEMOCAP/results/
 src/finetune/IEMOCAP/*.png
 src/finetune/IEMOCAP/data/datafiles/*.json
 src/finetune/IEMOCAP/data/datafiles/*.csv
