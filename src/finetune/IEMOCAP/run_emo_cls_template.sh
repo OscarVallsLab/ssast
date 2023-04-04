@@ -56,7 +56,7 @@ noise=True
 mixup=0
 
 # Experiment directory
-exp_name=test_${ft_exp}-f$fstride-t$tstride-b$batch_size-${model_size}-${task}-lr${lr}-lr_decay${lr_decay}-noise${noise}-drop${drop_rate}-fr_blocks${fr_blocks}
+exp_name=test_${ft_exp}-f$fstride-t$tstride-b$batch_size-${model_size}-${task}-lr${lr}-lr_decay${lr_decay}-noise${noise}-drop${drop_rate}-fr_blocks${frozen_blocks}
 exp_dir=./exp/cls_tok/${exp_name}/1_fold
 
 CUDA_CACHE_DISABLE=1 python3 -W ignore ../../run.py --dataset ${dataset} \
@@ -70,4 +70,4 @@ CUDA_CACHE_DISABLE=1 python3 -W ignore ../../run.py --dataset ${dataset} \
 --dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --target_length ${target_length} \
 --num_mel_bins 128 --head_lr ${head_lr} --noise ${noise} \
 --lrscheduler_start 5 --lrscheduler_step 1 --lrscheduler_decay ${lr_decay} --wa False --loss CE --metrics acc \
---drop_rate ${drop_rate}
+--drop_rate ${drop_rate} --frozen_blocks ${frozen_blocks}

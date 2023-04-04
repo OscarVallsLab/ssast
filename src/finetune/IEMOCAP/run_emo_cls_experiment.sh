@@ -30,6 +30,7 @@ eval_data=./data/datafiles/test_data.json
 
 
 bal=None
+lr=1e-4
 # Masks length
 freqm=48
 timem=48
@@ -40,15 +41,15 @@ tshape=2
 fstride=128
 tstride=1
 
-task=ft_cls
+task=ft_avgtok
 model_size=base
 head_lr=1
 pretrain_path=./${pretrain_exp}/${pretrain_model}.pth
 
-##### EXPERIMENT 10 ####
+##### EXPERIMENT 1 ####
 # Hyper parameters
-frozen_blocks=4
-ft_exp=10
+frozen_blocks=12
+ft_exp=1
 lr=1e-3
 lr_decay=0.75
 drop_rate=0.4
@@ -57,7 +58,7 @@ mixup=0
 
 # Experiment directory
 exp_name=test_${ft_exp}-f$fstride-t$tstride-b$batch_size-${model_size}-${task}-lr${lr}-lr_decay${lr_decay}-noise${noise}-drop${drop_rate}-fr_blocks${frozen_blocks}
-exp_dir=./exp/cls_tok/${exp_name}/1_fold
+exp_dir=./exp/avg_tok/${exp_name}/1_fold
 
 CUDA_CACHE_DISABLE=1 python3 -W ignore ../../run.py --dataset ${dataset} \
 --data-train ${tr_data} --data-val ${val_data} --data-eval ${eval_data} --exp-dir $exp_dir \
@@ -72,10 +73,10 @@ CUDA_CACHE_DISABLE=1 python3 -W ignore ../../run.py --dataset ${dataset} \
 --lrscheduler_start 5 --lrscheduler_step 1 --lrscheduler_decay ${lr_decay} --wa False --loss CE --metrics acc \
 --drop_rate ${drop_rate} --frozen_blocks ${frozen_blocks}
 
-##### EXPERIMENT 11 ####
+##### EXPERIMENT 2 ####
 # Hyper parameters
-frozen_blocks=3
-ft_exp=11
+frozen_blocks=11
+ft_exp=2
 lr=1e-3
 lr_decay=0.75
 drop_rate=0.4
@@ -84,7 +85,7 @@ mixup=0
 
 # Experiment directory
 exp_name=test_${ft_exp}-f$fstride-t$tstride-b$batch_size-${model_size}-${task}-lr${lr}-lr_decay${lr_decay}-noise${noise}-drop${drop_rate}-fr_blocks${frozen_blocks}
-exp_dir=./exp/cls_tok/${exp_name}/1_fold
+exp_dir=./exp/avg_tok/${exp_name}/1_fold
 
 CUDA_CACHE_DISABLE=1 python3 -W ignore ../../run.py --dataset ${dataset} \
 --data-train ${tr_data} --data-val ${val_data} --data-eval ${eval_data} --exp-dir $exp_dir \
@@ -99,10 +100,10 @@ CUDA_CACHE_DISABLE=1 python3 -W ignore ../../run.py --dataset ${dataset} \
 --lrscheduler_start 5 --lrscheduler_step 1 --lrscheduler_decay ${lr_decay} --wa False --loss CE --metrics acc \
 --drop_rate ${drop_rate} --frozen_blocks ${frozen_blocks}
 
-##### EXPERIMENT 12 ####
+##### EXPERIMENT 3 ####
 # Hyper parameters
-frozen_blocks=2
-ft_exp=12
+frozen_blocks=10
+ft_exp=3
 lr=1e-3
 lr_decay=0.75
 drop_rate=0.4
@@ -111,7 +112,7 @@ mixup=0
 
 # Experiment directory
 exp_name=test_${ft_exp}-f$fstride-t$tstride-b$batch_size-${model_size}-${task}-lr${lr}-lr_decay${lr_decay}-noise${noise}-drop${drop_rate}-fr_blocks${frozen_blocks}
-exp_dir=./exp/cls_tok/${exp_name}/1_fold
+exp_dir=./exp/avg_tok/${exp_name}/1_fold
 
 CUDA_CACHE_DISABLE=1 python3 -W ignore ../../run.py --dataset ${dataset} \
 --data-train ${tr_data} --data-val ${val_data} --data-eval ${eval_data} --exp-dir $exp_dir \
@@ -126,10 +127,10 @@ CUDA_CACHE_DISABLE=1 python3 -W ignore ../../run.py --dataset ${dataset} \
 --lrscheduler_start 5 --lrscheduler_step 1 --lrscheduler_decay ${lr_decay} --wa False --loss CE --metrics acc \
 --drop_rate ${drop_rate} --frozen_blocks ${frozen_blocks}
 
-##### EXPERIMENT 13 ####
+##### EXPERIMENT 4 ####
 # Hyper parameters
-frozen_blocks=1
-ft_exp=13
+frozen_blocks=9
+ft_exp=4
 lr=1e-3
 lr_decay=0.75
 drop_rate=0.4
@@ -138,7 +139,115 @@ mixup=0
 
 # Experiment directory
 exp_name=test_${ft_exp}-f$fstride-t$tstride-b$batch_size-${model_size}-${task}-lr${lr}-lr_decay${lr_decay}-noise${noise}-drop${drop_rate}-fr_blocks${frozen_blocks}
-exp_dir=./exp/cls_tok/${exp_name}/1_fold
+exp_dir=./exp/avg_tok/${exp_name}/1_fold
+
+CUDA_CACHE_DISABLE=1 python3 -W ignore ../../run.py --dataset ${dataset} \
+--data-train ${tr_data} --data-val ${val_data} --data-eval ${eval_data} --exp-dir $exp_dir \
+--label-csv ./data/IEMOCAP_class_labels_indices.csv --n_class 6 \
+--lr $lr --n-epochs ${epoch} --batch-size $batch_size --save_model False \
+--freqm $freqm --timem $timem --mixup ${mixup} --bal ${bal} \
+--tstride $tstride --fstride $fstride --fshape ${fshape} --tshape ${tshape} --warmup True --task ${task} \
+--model_size ${model_size} --adaptschedule False \
+--pretrained_mdl_path ${pretrain_path} \
+--dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --target_length ${target_length} \
+--num_mel_bins 128 --head_lr ${head_lr} --noise ${noise} \
+--lrscheduler_start 5 --lrscheduler_step 1 --lrscheduler_decay ${lr_decay} --wa False --loss CE --metrics acc \
+--drop_rate ${drop_rate} --frozen_blocks ${frozen_blocks}
+
+##### EXPERIMENT 5 ####
+# Hyper parameters
+frozen_blocks=8
+ft_exp=5
+lr=1e-3
+lr_decay=0.75
+drop_rate=0.4
+noise=True
+mixup=0
+
+# Experiment directory
+exp_name=test_${ft_exp}-f$fstride-t$tstride-b$batch_size-${model_size}-${task}-lr${lr}-lr_decay${lr_decay}-noise${noise}-drop${drop_rate}-fr_blocks${frozen_blocks}
+exp_dir=./exp/avg_tok/${exp_name}/1_fold
+
+CUDA_CACHE_DISABLE=1 python3 -W ignore ../../run.py --dataset ${dataset} \
+--data-train ${tr_data} --data-val ${val_data} --data-eval ${eval_data} --exp-dir $exp_dir \
+--label-csv ./data/IEMOCAP_class_labels_indices.csv --n_class 6 \
+--lr $lr --n-epochs ${epoch} --batch-size $batch_size --save_model False \
+--freqm $freqm --timem $timem --mixup ${mixup} --bal ${bal} \
+--tstride $tstride --fstride $fstride --fshape ${fshape} --tshape ${tshape} --warmup True --task ${task} \
+--model_size ${model_size} --adaptschedule False \
+--pretrained_mdl_path ${pretrain_path} \
+--dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --target_length ${target_length} \
+--num_mel_bins 128 --head_lr ${head_lr} --noise ${noise} \
+--lrscheduler_start 5 --lrscheduler_step 1 --lrscheduler_decay ${lr_decay} --wa False --loss CE --metrics acc \
+--drop_rate ${drop_rate} --frozen_blocks ${frozen_blocks}
+
+##### EXPERIMENT 6 ####
+# Hyper parameters
+frozen_blocks=7
+ft_exp=6
+lr=1e-3
+lr_decay=0.75
+drop_rate=0.4
+noise=True
+mixup=0
+
+# Experiment directory
+exp_name=test_${ft_exp}-f$fstride-t$tstride-b$batch_size-${model_size}-${task}-lr${lr}-lr_decay${lr_decay}-noise${noise}-drop${drop_rate}-fr_blocks${frozen_blocks}
+exp_dir=./exp/avg_tok/${exp_name}/1_fold
+
+CUDA_CACHE_DISABLE=1 python3 -W ignore ../../run.py --dataset ${dataset} \
+--data-train ${tr_data} --data-val ${val_data} --data-eval ${eval_data} --exp-dir $exp_dir \
+--label-csv ./data/IEMOCAP_class_labels_indices.csv --n_class 6 \
+--lr $lr --n-epochs ${epoch} --batch-size $batch_size --save_model False \
+--freqm $freqm --timem $timem --mixup ${mixup} --bal ${bal} \
+--tstride $tstride --fstride $fstride --fshape ${fshape} --tshape ${tshape} --warmup True --task ${task} \
+--model_size ${model_size} --adaptschedule False \
+--pretrained_mdl_path ${pretrain_path} \
+--dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --target_length ${target_length} \
+--num_mel_bins 128 --head_lr ${head_lr} --noise ${noise} \
+--lrscheduler_start 5 --lrscheduler_step 1 --lrscheduler_decay ${lr_decay} --wa False --loss CE --metrics acc \
+--drop_rate ${drop_rate} --frozen_blocks ${frozen_blocks}
+
+##### EXPERIMENT 7 ####
+# Hyper parameters
+frozen_blocks=6
+ft_exp=7
+lr=1e-3
+lr_decay=0.75
+drop_rate=0.4
+noise=True
+mixup=0
+
+# Experiment directory
+exp_name=test_${ft_exp}-f$fstride-t$tstride-b$batch_size-${model_size}-${task}-lr${lr}-lr_decay${lr_decay}-noise${noise}-drop${drop_rate}-fr_blocks${frozen_blocks}
+exp_dir=./exp/avg_tok/${exp_name}/1_fold
+
+CUDA_CACHE_DISABLE=1 python3 -W ignore ../../run.py --dataset ${dataset} \
+--data-train ${tr_data} --data-val ${val_data} --data-eval ${eval_data} --exp-dir $exp_dir \
+--label-csv ./data/IEMOCAP_class_labels_indices.csv --n_class 6 \
+--lr $lr --n-epochs ${epoch} --batch-size $batch_size --save_model False \
+--freqm $freqm --timem $timem --mixup ${mixup} --bal ${bal} \
+--tstride $tstride --fstride $fstride --fshape ${fshape} --tshape ${tshape} --warmup True --task ${task} \
+--model_size ${model_size} --adaptschedule False \
+--pretrained_mdl_path ${pretrain_path} \
+--dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --target_length ${target_length} \
+--num_mel_bins 128 --head_lr ${head_lr} --noise ${noise} \
+--lrscheduler_start 5 --lrscheduler_step 1 --lrscheduler_decay ${lr_decay} --wa False --loss CE --metrics acc \
+--drop_rate ${drop_rate} --frozen_blocks ${frozen_blocks}
+
+##### EXPERIMENT 8 ####
+# Hyper parameters
+frozen_blocks=5
+ft_exp=8
+lr=1e-3
+lr_decay=0.75
+drop_rate=0.4
+noise=True
+mixup=0
+
+# Experiment directory
+exp_name=test_${ft_exp}-f$fstride-t$tstride-b$batch_size-${model_size}-${task}-lr${lr}-lr_decay${lr_decay}-noise${noise}-drop${drop_rate}-fr_blocks${frozen_blocks}
+exp_dir=./exp/avg_tok/${exp_name}/1_fold
 
 CUDA_CACHE_DISABLE=1 python3 -W ignore ../../run.py --dataset ${dataset} \
 --data-train ${tr_data} --data-val ${val_data} --data-eval ${eval_data} --exp-dir $exp_dir \
