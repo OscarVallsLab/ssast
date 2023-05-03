@@ -136,7 +136,7 @@ def train(audio_model, train_loader, test_loader, args):
         print('---------------')
         print(datetime.datetime.now())
         print("current #epochs=%s, #steps=%s" % (epoch, global_step))
-
+        epoch_start = time.time()
         for i, (audio_input, labels) in enumerate(train_loader):
 
             B = audio_input.size(0)
@@ -154,7 +154,7 @@ def train(audio_model, train_loader, test_loader, args):
                     param_group['lr'] = warm_lr
                     print('warm-up learning rate is {:f}'.format(param_group['lr']))
 
-            audio_output = audio_model(audio_input, args.task)
+            audio_rep, audio_output = audio_model(audio_input, args.task)
             if isinstance(loss_fn, torch.nn.CrossEntropyLoss):
                 loss = loss_fn(audio_output, torch.argmax(labels.long(), axis=1))
             else:
@@ -195,7 +195,8 @@ def train(audio_model, train_loader, test_loader, args):
 
             end_time = time.time()
             global_step += 1
-
+        epoch_finished = time.time()
+        print(f"Training epoch time = {epoch_finished - epoch_start}")
         print('start validation')
         stats, valid_loss = validate(audio_model, test_loader, args, epoch)
 
@@ -323,7 +324,7 @@ def validate(audio_model, val_loader, args, epoch):
             audio_input = audio_input.to(device)
 
             # compute output
-            audio_output = audio_model(audio_input, args.task)
+            audio_rep, audio_output = audio_model(audio_input, args.task)
             audio_output = torch.sigmoid(audio_output)
             predictions = audio_output.to('cpu').detach()
 

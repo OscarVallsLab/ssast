@@ -14,5 +14,6 @@ pandas
 openpyxl
 librosa
 captum
-torchsummaryX
+torch_summary
 seaborn
+vit_pytorch
