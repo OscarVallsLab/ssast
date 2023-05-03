@@ -27,7 +27,7 @@ console = parser.parse_args()
 exp_name = f'{console.n_epochs}_epochs_bal_{console.balance}_lr_{console.lr}_batch_size_{console.batch_size}_dropout_{console.dropout}'
 
 if not os.path.exists(f'./finetune/IEMOCAP/student/results/{exp_name}/'):
-    os.mkdir(f'./finetune/IEMOCAP/student/results/{exp_name}/')
+    os.mkdir(f'./finetune/IEMOCAP/student/results/{exp_name}')
 
 teacher_dir = './finetune/IEMOCAP/teacher/'
 with open(teacher_dir+'args.pkl','rb') as file:
