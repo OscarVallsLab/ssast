@@ -17,7 +17,7 @@ set -x
 export TORCH_HOME=../../pretrained_models
 mkdir -p ./exp
 
-pretrain_exp=
+pretrain_exp=../../../pretrained_model
 pretrain_model=SSAST-Base-Frame-400
 
 dataset=iemocap
@@ -47,8 +47,8 @@ pretrain_path=./${pretrain_exp}/${pretrain_model}.pth
 
 ##### EXPERIMENT 1 ####
 # Hyper parameters
-frozen_blocks=12
-ft_exp=1
+frozen_blocks=0
+ft_exp=0
 lr=1e-3
 lr_decay=0.75
 drop_rate=0.4

@@ -41,7 +41,7 @@ tshape=2
 fstride=128
 tstride=1
 
-task=ft_cls
+task=ft_avgtok
 model_size=base
 head_lr=1
 pretrain_path=./${pretrain_exp}/${pretrain_model}.pth

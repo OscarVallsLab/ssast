@@ -15,23 +15,32 @@ from vit_pytorch import ViT
 from utilities.kd_utils import DistLoss
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score as accuracy
+from torchsummary import summary
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--n_epochs',type=int,default=1)
-parser.add_argument('--balance',type=float,default=0.5)
+parser.add_argument('--n_epochs',type=int,default=2)
+parser.add_argument('--balance',type=float,default=0.9)
 parser.add_argument('--lr',type=float,default=0.0001)
 parser.add_argument('--batch_size',type=int,default=32)
-parser.add_argument('--dropout',type=float,default=0.0)
+parser.add_argument('--dropout',type=float,default=0.2)
+parser.add_argument('--ft_teacher',action='store_true')
+parser.add_argument('--num_tokens', type=int, default=768)
+parser.add_argument('--mlp_dim', type=int, default=64)
+parser.add_argument('--embedding_dropout', type=float, default=0.0)
 console = parser.parse_args()
 
-exp_name = f'{console.n_epochs}_epochs_bal_{console.balance}_lr_{console.lr}_batch_size_{console.batch_size}_dropout_{console.dropout}'
+base_dir = './finetune/IEMOCAP/results/distill'
 
-if not os.path.exists(f'./finetune/IEMOCAP/student/results/{exp_name}/'):
-    os.mkdir(f'./finetune/IEMOCAP/student/results/{exp_name}')
+exp_name = f'{console.n_epochs}_epochs_bal_{console.balance}_lr_{console.lr}_batch_size_{console.batch_size}_dropout_{console.dropout}_ft_teacher_{console.ft_teacher}_{console.num_tokens}_tokens_mlp_{console.mlp_dim}_emb_drop_{console.embedding_dropout}'
 
-teacher_dir = './finetune/IEMOCAP/teacher/'
+if not os.path.exists(f'{base_dir}/student/results/{exp_name}/'):
+    os.mkdir(f'{base_dir}/student/results/{exp_name}/')
+
+teacher_dir = f'{base_dir}/teacher/'
 with open(teacher_dir+'args.pkl','rb') as file:
     args = pickle.load(file)
+
+print(f"CUDA AVAILABLE = {torch.cuda.is_available()}")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -51,31 +60,34 @@ loss_fn = DistLoss(balance=console.balance)
 sd = torch.load(teacher_dir + 'best_audio_model.pth', map_location=device)
 if not isinstance(teacher_model, torch.nn.DataParallel):
     audio_model = torch.nn.DataParallel(teacher_model)
-audio_model.load_state_dict(sd, strict=False)
+if console.ft_teacher:
+    audio_model.load_state_dict(sd, strict=False)
 
 student = VitStudentModel(
     image_size = args.target_length,
     patch_size = (args.tshape,args.fshape),
     num_classes = args.n_class,
-    dim = 768,
+    dim = console.num_tokens,
     depth = 1,
     heads = 1,
-    mlp_dim = 128,
+    mlp_dim = console.mlp_dim,
     dropout = console.dropout,
-    emb_dropout = 0,
+    emb_dropout = console.embedding_dropout,
     channels = 1,
     pool='mean'
 ).to(device)
 
+summary(student)
+
 train_dataset = dataloader.AudioDataset(dataset_json_file=f'./finetune/IEMOCAP/data/datafiles/1_fold_train_data.json',
                                     label_csv='./finetune/IEMOCAP/data/IEMOCAP_class_labels_indices.csv',
                                     audio_conf=val_audio_conf)
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=console.batch_size, shuffle=True, num_workers=4, pin_memory=True)
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=console.batch_size, shuffle=True, num_workers=2, pin_memory=True)
 
 val_dataset = dataloader.AudioDataset(dataset_json_file=f'./finetune/IEMOCAP/data/datafiles/1_fold_valid_data.json',
                                     label_csv='./finetune/IEMOCAP/data/IEMOCAP_class_labels_indices.csv',
                                     audio_conf=val_audio_conf)
-val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=console.batch_size, shuffle=False, num_workers=4, pin_memory=True)
+val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=console.batch_size, shuffle=False, num_workers=2, pin_memory=True)
 
 optimizer = torch.optim.Adam(student.parameters(),lr=console.lr)
 num_epochs = console.n_epochs
@@ -92,6 +104,8 @@ for epoch in range(num_epochs):
     # Training loop
     student.train()
     train_step_losses = torch.zeros((len(train_loader),1))
+    feat_losses = torch.zeros((len(train_loader),1))
+    pred_losses = torch.zeros((len(train_loader),1))
     progress_bar = tqdm(range(len(train_loader)))
     train_predictions = np.empty((1,6))
     train_labels = np.empty((1,6))
@@ -108,14 +122,25 @@ for epoch in range(num_epochs):
         latent, logits = student(input)
         pred = activation(logits)
 
-        loss = loss_fn(logits,latent,label,target_latent)
+        pred_loss, feat_loss, loss = loss_fn(logits,latent,label,target_latent)
         train_step_losses[i] = loss.detach()
+        feat_losses[i] = feat_loss.detach()
+        pred_losses[i] = pred_loss.detach()
         loss.backward()
         optimizer.step()
         progress_bar.update(1)
 
         train_predictions = np.concatenate((train_predictions,pred.detach().cpu().numpy()),axis=0)
         train_labels = np.concatenate((train_labels,label.detach().cpu().numpy()),axis=0)
+    
+    mpl.use("agg")
+    plt.figure()
+    plt.plot(range(len(train_loader)),train_step_losses,label='distill loss')
+    plt.plot(range(len(train_loader)),feat_losses, label='feature loss')
+    plt.plot(range(len(train_loader)),pred_losses, label='prediction loss')
+    plt.title("Distillation loss")
+    plt.legend()
+    plt.savefig(f'{base_dir}/student/results/{exp_name}/epoch{epoch}_distillation_loss.png')
     
     # Evaluation loop
     student.eval()
@@ -132,7 +157,7 @@ for epoch in range(num_epochs):
             input = input[:,None, :]
             latent, logits = student(input)
             pred = activation(logits)
-            loss = loss_fn(logits,latent,label,target_latent)
+            _, _, loss = loss_fn(logits,latent,label,target_latent)
             
         val_step_losses[i] = loss.detach()
 
@@ -177,7 +202,7 @@ for i, (input, label) in enumerate(test_loader):
         input = input[:,None, :]
         latent, logits = best_student(input)
         pred = activation(logits)
-        loss = loss_fn(logits,latent,label,target_latent)
+        _, _, loss = loss_fn(logits,latent,label,target_latent)
         
     test_step_losses[i] = loss.detach()
 
@@ -189,12 +214,13 @@ for i, (input, label) in enumerate(test_loader):
 test_loss = torch.mean(test_step_losses)
 test_acc = accuracy(np.argmax(test_labels,axis=1),np.argmax(test_predictions,axis=1),normalize=True)
 
+print("Saving results into files")
 
-with open(f'./finetune/IEMOCAP/student/results/{exp_name}/metrics.txt',mode='w') as f:
+with open(f'{base_dir}/student/results/{exp_name}/metrics.txt',mode='w') as f:
     f.write(f"Training --> loss = {best_train_loss} accuracy = {best_train_acc} // Validation --> loss = {best_val_loss} accuracy = {best_val_acc} // Test --> loss = {test_loss} accuracy = {test_acc}")
     f.close()
 
-torch.save(best_student.state_dict(),f'./finetune/IEMOCAP/student/results/{exp_name}/best_model.pth')
+torch.save(best_student.state_dict(),f'{base_dir}/student/results/{exp_name}/best_model.pth')
 
 mpl.use("agg")
 plt.figure()
@@ -202,4 +228,5 @@ plt.plot(range(num_epochs),train_epoch_losses,label='train loss')
 plt.plot(range(num_epochs),val_epoch_losses, label='validation loss')
 plt.title("Training and validation loss")
 plt.legend()
-plt.savefig(f'./finetune/IEMOCAP/student/results/{exp_name}/loss_curves.png')
+plt.savefig(f'{base_dir}/student/results/{exp_name}/loss_curves.png')
+

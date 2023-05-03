@@ -49,7 +49,9 @@ def validate(audio_model, val_loader, args, epoch):
     # audio_model = audio_model.to(device)
     # switch to evaluate mode
     audio_model.eval()
-    audio_model.require_grad_(False)
+    audio_model.requires_grad_(False)
+    trainables = [p for p in audio_model.parameters() if p.requires_grad]
+    print('Total trainable parameter number is : {:.3f} million'.format(sum(p.numel() for p in trainables) / 1e6))
     end = time.time()
     A_predictions = []
     A_targets = []
@@ -64,11 +66,8 @@ def validate(audio_model, val_loader, args, epoch):
                 summary(audio_model,audio_input,args.task)
             
             # compute output
-            start = time.time()
             audio_output = audio_model(audio_input, args.task)
             audio_output = torch.sigmoid(audio_output)
-            end = time.time()
-            print(f"Audio time = {end-start}")          
             predictions = audio_output.to('cpu').detach()
 
             index_output = np.argmax(predictions,axis=-1)
@@ -130,7 +129,7 @@ for fold in range(1,2):
         # Create model object
         audio_model = ASTModel(label_dim=args.n_class, fshape=args.fshape, tshape=args.tshape, fstride=args.fstride, tstride=args.tstride,
                             input_fdim=args.num_mel_bins, input_tdim=args.target_length, model_size=args.model_size, pretrain_stage=False,
-                            load_pretrained_mdl_path='../pretrained_model/SSAST-Base-Frame-400.pth')
+                            load_pretrained_mdl_path='../pretrained_model/SSAST-Base-Frame-400.pth').requires_grad_(False)
 
         # Load audio config dict
         val_audio_conf = {'num_mel_bins': args.num_mel_bins, 'target_length': args.target_length, 'freqm': 0, 'timem': 0, 'mixup': 0, 'dataset': args.dataset,
