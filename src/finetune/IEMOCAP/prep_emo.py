@@ -3,7 +3,7 @@ import json
 import numpy as np
 import pandas as pd
 
-DATA_PATH = os.path.abspath('../../../../data/IEMOCAP')
+DATA_PATH = os.path.abspath('../../../../data_folder/data/IEMOCAP')
 OUTPUT_PATH = './datafiles'
 print(DATA_PATH)
 
@@ -23,7 +23,7 @@ for k in range(1,5):
     train_dict,val_dict = ({"data":[]},{"data":[]})
     
     for index in range(len(train_df)):
-        wav_path = os.path.abspath('../../../' + train_df.iloc[index]['data'])
+        wav_path = os.path.abspath('../../../../datafolder/' + train_df.iloc[index]['data'])
         train_dict["data"].append({
             "wav" : wav_path,
             "labels" : train_df.iloc[index]['class']
