@@ -1,0 +1,19 @@
+FROM nvcr.io/nvidia/pytorch:22.12-py3
+
+# Install pip and update the libraries of the container.
+RUN apt-get -qq update && apt-get -qq upgrade \
+    && apt-get -qq --no-install-recommends install python3-pip \
+    && apt-get -qq clean    \
+    && rm -rf /var/lib/apt/lists/*
+
+# Update pip
+RUN /usr/bin/python -m pip install --upgrade pip
+
+# Create the working directory
+WORKDIR /workspace/code
+
+# Copy file inside the container (in /workspace/code) and execute the code when running the container 
+COPY . .
+RUN pip install -r requirements.txt
+ENTRYPOINT python ./src/finetune/IEMOCAP/prep_emo.py
+ENTRYPOINT python ./src/fine_tune_ssast.py --exp_name prueba_ft_ssast --exp_id 0 --lr 0.001 --batch_size 8 --n_epochs 1 --drop_rate 0.0
