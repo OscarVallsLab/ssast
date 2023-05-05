@@ -16,6 +16,7 @@ from torch import nn
 import numpy as np
 import pickle
 from torch.cuda.amp import autocast,GradScaler
+from tqdm import tqdm
 
 IEMOCAP_CLASS_WEIGHTS = [0.76851852, 0.91937669, 0.85049684, 0.85298103, 0.85907859, 0.74954833]
 
@@ -36,7 +37,7 @@ def train(audio_model, train_loader, test_loader, args):
     best_epoch, best_cum_epoch, best_mAP, best_acc, best_cum_mAP = 0, 0, -np.inf, -np.inf, -np.inf
     global_step, epoch = 0, 0
     start_time = time.time()
-    exp_dir = args.exp_dir
+    exp_dir = f'{args.exp_dir}/{args.exp_name}/{args.exp_id}'
 
     def _save_progress():
         progress.append([epoch, global_step, best_epoch, best_mAP,
@@ -129,6 +130,7 @@ def train(audio_model, train_loader, test_loader, args):
     print("start training...")
     result = np.zeros([args.n_epochs, 10])
     audio_model.train()
+    progress_bar = tqdm(range(len(train_loader)))
     while epoch < args.n_epochs + 1:
         begin_time = time.time()
         end_time = time.time()
@@ -195,6 +197,7 @@ def train(audio_model, train_loader, test_loader, args):
 
             end_time = time.time()
             global_step += 1
+            progress_bar.update(1)
         epoch_finished = time.time()
         print(f"Training epoch time = {epoch_finished - epoch_start}")
         print('start validation')
@@ -348,7 +351,7 @@ def validate(audio_model, val_loader, args, epoch):
         stats = calculate_stats(audio_output, target)
 
         # save the prediction here
-        exp_dir = args.exp_dir
+        exp_dir = f'{args.exp_dir}/{args.exp_name}/{args.exp_id}'
         if os.path.exists(exp_dir+'/predictions') == False:
             os.mkdir(exp_dir+'/predictions')
             np.savetxt(exp_dir+'/predictions/target.csv', target, delimiter=',')
@@ -357,7 +360,7 @@ def validate(audio_model, val_loader, args, epoch):
     return stats, loss
 
 def validate_ensemble(args, epoch):
-    exp_dir = args.exp_dir
+    exp_dir = f'{args.exp_dir}/{args.exp_name}/{args.exp_id}'
     target = np.loadtxt(exp_dir+'/predictions/target.csv', delimiter=',')
     if epoch == 1:
         cum_predictions = np.loadtxt(exp_dir + '/predictions/predictions_1.csv', delimiter=',')
@@ -376,7 +379,7 @@ def validate_ensemble(args, epoch):
 
 def validate_wa(audio_model, val_loader, args, start_epoch, end_epoch):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    exp_dir = args.exp_dir
+    exp_dir = f'{args.exp_dir}/{args.exp_name}/{args.exp_id}'
 
     sdA = torch.load(exp_dir + '/models/audio_model.' + str(start_epoch) + '.pth', map_location=device)
 

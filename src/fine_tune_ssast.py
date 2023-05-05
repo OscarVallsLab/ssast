@@ -69,7 +69,7 @@ parser.add_argument("--lr_patience", type=int, default=1, help="how many epoch t
 parser.add_argument('--adaptschedule', help='if use adaptive scheduler ', type=ast.literal_eval, default='False')
 parser.add_argument("--n_print_steps", type=int, default=100, help="number of steps to print statistics")
 parser.add_argument('--save_model', default=False, help='save the models or not', type=ast.literal_eval)
-parser.add_argument("--task", type=str, default='ft_cls', help="pretraining or fine-tuning task", choices=["ft_avgtok", "ft_cls", "pretrain_mpc", "pretrain_mpg", "pretrain_joint"])
+parser.add_argument("--task", type=str, default='ft_avgtok', help="pretraining or fine-tuning task", choices=["ft_avgtok", "ft_cls", "pretrain_mpc", "pretrain_mpg", "pretrain_joint"])
 parser.add_argument("--frozen_blocks",default=0,type=int,help="Number of transformer blocks to freeze while fine-tuning")
 parser.add_argument("--head_lr", type=int, default=1, help="the factor of mlp-head_lr/lr, used in some fine-tuning experiments only")
 parser.add_argument("--lrscheduler_start", default=0, type=int, help="when to start decay in finetuning")
@@ -141,7 +141,7 @@ if not isinstance(audio_model, torch.nn.DataParallel):
     audio_model = torch.nn.DataParallel(audio_model)
 
 print("\nCreating experiment directory: %s" % args.exp_dir)
-if os.path.exists(f"{args.exp_dir}/{args.exp_name}/models") == False:
+if os.path.exists(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}") == False:
     os.makedirs(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}/models/")
 else:
     raise ValueError(f"Experiment directory {args.exp_dir}/{args.exp_name}/models already exists. Change args.exp_id")
@@ -153,31 +153,30 @@ train(audio_model, train_loader, val_loader, args)
 
 # if the dataset has a seperate evaluation set (e.g., speechcommands), then select the model using the validation set and eval on the evaluation set.
 # this is only for fine-tuning
-if args.data_eval != None:
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    sd = torch.load(args.exp_dir + '/models/best_audio_model.pth', map_location=device)
-    if not isinstance(audio_model, torch.nn.DataParallel):
-        audio_model = torch.nn.DataParallel(audio_model)
-    audio_model.load_state_dict(sd, strict=False)
 
-    # best models on the validation set
-    stats, _ = validate(audio_model, val_loader, args, 'valid_set')
-    # note it is NOT mean of class-wise accuracy
-    val_acc = stats[0]['acc']
-    val_mAUC = np.mean([stat['auc'] for stat in stats])
-    print('---------------evaluate on the validation set---------------')
-    print("Accuracy: {:.6f}".format(val_acc))
-    print("AUC: {:.6f}".format(val_mAUC))
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+sd = torch.load(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}/models/best_audio_model.pth", map_location=device)
+if not isinstance(audio_model, torch.nn.DataParallel):
+    audio_model = torch.nn.DataParallel(audio_model)
+audio_model.load_state_dict(sd, strict=False)
 
-    # test the models on the evaluation set
-    eval_loader = torch.utils.data.DataLoader(
-        dataloader.AudioDataset(args.data_eval, label_csv=args.label_csv, audio_conf=val_audio_conf),
-        batch_size=args.batch_size*2, shuffle=False, num_workers=args.num_workers, pin_memory=True)
-    stats, _ = validate(audio_model, eval_loader, args, 'eval_set')
-    eval_acc = stats[0]['acc']
-    eval_mAUC = np.mean([stat['auc'] for stat in stats])
-    print('---------------evaluate on the test set---------------')
-    print("Accuracy: {:.6f}".format(eval_acc))
-    print("AUC: {:.6f}".format(eval_mAUC))
-    np.savetxt(args.exp_dir + '/eval_result.csv', [val_acc, val_mAUC, eval_acc, eval_mAUC])
+# best models on the validation set
+stats, _ = validate(audio_model, val_loader, args, 'valid_set')
+# note it is NOT mean of class-wise accuracy
+val_acc = stats[0]['acc']
+val_mAUC = np.mean([stat['auc'] for stat in stats])
+print('---------------evaluate on the validation set---------------')
+print("Accuracy: {:.6f}".format(val_acc))
+print("AUC: {:.6f}".format(val_mAUC))
 
+# test the models on the evaluation set
+eval_loader = torch.utils.data.DataLoader(
+    dataloader.AudioDataset(f'{args.data_files}/1_fold_train_data.json', label_csv=args.label_csv, audio_conf=val_audio_conf),
+    batch_size=args.batch_size*2, shuffle=False, num_workers=args.num_workers, pin_memory=True)
+stats, _ = validate(audio_model, eval_loader, args, 'eval_set')
+eval_acc = stats[0]['acc']
+eval_mAUC = np.mean([stat['auc'] for stat in stats])
+print('---------------evaluate on the test set---------------')
+print("Accuracy: {:.6f}".format(eval_acc))
+print("AUC: {:.6f}".format(eval_mAUC))
+np.savetxt(f'{args.exp_dir}/{args.exp_name}/{args.exp_id}/eval_result.csv', [val_acc, val_mAUC, eval_acc, eval_mAUC])
