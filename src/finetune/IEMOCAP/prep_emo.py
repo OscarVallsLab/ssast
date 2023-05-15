@@ -8,7 +8,7 @@ print(DATA_PATH)
 OUTPUT_PATH = './datafiles'
 # print(DATA_PATH)
 
-label_set = np.loadtxt('./data/IEMOCAP_class_labels_indices.csv', delimiter=',', dtype='str')
+label_set = np.loadtxt('.src/finetune/data/IEMOCAP_class_labels_indices.csv', delimiter=',', dtype='str')
 label_map = {}
 for i in range(1, len(label_set)):
     label_map[eval(label_set[i][2])] = label_set[i][0]
