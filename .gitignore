@@ -24,3 +24,4 @@ src/finetune/IEMOCAP/*.png
 src/finetune/IEMOCAP/data/datafiles/*.json
 src/finetune/IEMOCAP/data/datafiles/*.csv
 src/finetune/IEMOCAP/train*.sh
+mlruns/

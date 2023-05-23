@@ -12,6 +12,8 @@ import pickle
 import sys
 import time
 import torch
+import mlflow
+
 from torch.utils.data import WeightedRandomSampler
 basepath = os.path.dirname(os.path.dirname(sys.path[0]))
 sys.path.append(basepath)
@@ -20,6 +22,7 @@ from models.ast_models import ASTModel
 import numpy as np
 from traintest import train, validate
 from traintest_mask import trainmask
+from mlflow import log_metric, log_params, log_artifact
 
 print("I am process %s, running on %s: starting (%s)" % (os.getpid(), os.uname()[1], time.asctime()))
 
@@ -28,7 +31,7 @@ parser = argparse.ArgumentParser()
 
 # Experiment arguments
 parser.add_argument("--exp_name", type=str, help="directory to dump experiments", required=True)
-parser.add_argument('--exp_dir', type=str, default='/workspace/NASFolder/results/ssast')
+parser.add_argument('--exp_dir', type=str, default='../NASFolder/results/ssast')
 parser.add_argument('--exp_id', type=int, required=True)
 # Dataset arguments
 parser.add_argument("--data_files", type=str, default='./src/finetune/IEMOCAP/data/datafiles/', help="training data json")
@@ -64,6 +67,7 @@ parser.add_argument("--n_epochs", type=int, help="number of maximum training epo
 parser.add_argument("--drop_rate",default=0.,help="Dropout probability while training", required=True)
 parser.add_argument("--optim", type=str, default="adam", help="training optimizer", choices=["sgd", "adam"])
 parser.add_argument('-w', '--num_workers', default=4, type=int, metavar='NW', help='# of workers for dataloading (default: 32)')
+
 # only used in pretraining stage or from-scratch fine-tuning experiments
 parser.add_argument("--lr_patience", type=int, default=1, help="how many epoch to wait to reduce lr if mAP doesn't improve")
 parser.add_argument('--adaptschedule', help='if use adaptive scheduler ', type=ast.literal_eval, default='False')
@@ -82,101 +86,122 @@ parser.add_argument("--loss", type=str, default="CE", help="the loss function fo
 
 # model arguments
 parser.add_argument('--model_size', help='the size of AST models', type=str, default='base')
-parser.add_argument("--pretrained_mdl_path", type=str, default='/workspace/NASFolder/pretrained/SSAST-Base-Frame-400.pth', help="the ssl pretrained models path")
-
-# pretraining augments
-# #parser.add_argument('--pretrain_stage', help='True for self-supervised pretraining stage, False for fine-tuning stage', type=ast.literal_eval, default='False')
-# parser.add_argument('--mask_patch', help='how many patches to mask (used only for ssl pretraining)', type=int, default=400)
-# parser.add_argument("--cluster_factor", type=int, default=3, help="mask clutering factor")
-# parser.add_argument("--epoch_iter", type=int, default=2000, help="for pretraining, how many iterations to verify and save models")
+parser.add_argument("--pretrained_mdl_path", type=str, default='../NASFolder/pretrained/SSAST-Base-Frame-400.pth', help="the ssl pretrained models path")
 
 # tracking arguments
 parser.add_argument("--metrics", type=str, default="acc", help="the main evaluation metrics in finetuning", choices=["mAP", "acc"])
 
 args = parser.parse_args()
 
-# # dataset spectrogram mean and std, used to normalize the input
-# norm_stats = {'librispeech':[-4.2677393, 4.5689974], 'howto100m':[-4.2677393, 4.5689974], 'audioset':[-4.2677393, 4.5689974], 'esc50':[-6.6268077, 5.358466], 'speechcommands':[-6.845978, 5.5654526]}
-# target_length = {'librispeech': 1024, 'howto100m':1024, 'audioset':1024, 'esc50':512, 'speechcommands':128}
-# # if add noise for data augmentation, only use for speech commands
-# noise = {'librispeech': False, 'howto100m': False, 'audioset': False, 'esc50': False, 'speechcommands':True}
+# Set th tracking URI
+mlruns_path = os.path.abspath('../NASFolder/mlruns')
+os.environ['MLFLOW_TRACKING_URI'] = mlruns_path
 
-audio_conf = {'num_mel_bins': args.num_mel_bins, 'target_length': args.target_length, 'freqm': args.freqm, 'timem': args.timem, 'mixup': args.mixup, 'dataset': args.dataset,
-              'mode':'train', 'mean':args.dataset_mean, 'std':args.dataset_std, 'noise':args.noise}
+# Start MLFlow experiment
+mlflow.set_experiment(args.exp_name)
 
-val_audio_conf = {'num_mel_bins': args.num_mel_bins, 'target_length': args.target_length, 'freqm': 0, 'timem': 0, 'mixup': 0, 'dataset': args.dataset,
-                  'mode': 'evaluation', 'mean': args.dataset_mean, 'std': args.dataset_std, 'noise': False}
+# Keep Track of parameters
+with mlflow.start_run(run_name=str(args.exp_id)):
+    log_params({
+        "lr":args.lr,
+        "batch_size":args.batch_size,
+        "dropout":args.drop_rate,
+        "task":args.task,
+        "frozen_blocks":args.frozen_blocks,
+        "model_size":args.model_size,
+        "epochs":args.n_epochs
+    })
 
-# if use balanced sampling, note - self-supervised pretraining should not use balance sampling as it implicitly leverages the label information.
-if args.bal == 'bal':
-    print('balanced sampler is being used')
-    if args.dataset == 'iemocap':
-        IEMOCAP_CLASS_WEIGHTS = [0.76851852, 0.91937669, 0.85049684, 0.85298103, 0.85907859, 0.74954833]
-        samples_weight = np.array(IEMOCAP_CLASS_WEIGHTS)
+    audio_conf = {'num_mel_bins': args.num_mel_bins, 'target_length': args.target_length, 'freqm': args.freqm, 'timem': args.timem, 'mixup': args.mixup, 'dataset': args.dataset,
+                'mode':'train', 'mean':args.dataset_mean, 'std':args.dataset_std, 'noise':args.noise}
+
+    val_audio_conf = {'num_mel_bins': args.num_mel_bins, 'target_length': args.target_length, 'freqm': 0, 'timem': 0, 'mixup': 0, 'dataset': args.dataset,
+                    'mode': 'evaluation', 'mean': args.dataset_mean, 'std': args.dataset_std, 'noise': False}
+
+    # if use balanced sampling, note - self-supervised pretraining should not use balance sampling as it implicitly leverages the label information.
+    if args.bal == 'bal':
+        print('balanced sampler is being used')
+        if args.dataset == 'iemocap':
+            IEMOCAP_CLASS_WEIGHTS = [0.76851852, 0.91937669, 0.85049684, 0.85298103, 0.85907859, 0.74954833]
+            samples_weight = np.array(IEMOCAP_CLASS_WEIGHTS)
+        else:
+            samples_weight = np.loadtxt(args.data_train[:-5]+'_weight.csv', delimiter=',')
+        sampler = WeightedRandomSampler(samples_weight, len(samples_weight), replacement=True)
+
+        train_loader = torch.utils.data.DataLoader(
+            dataloader.AudioDataset(args.data_train, label_csv=args.label_csv, audio_conf=audio_conf),
+            batch_size=args.batch_size, sampler=sampler, num_workers=args.num_workers, pin_memory=False, drop_last=True)
     else:
-        samples_weight = np.loadtxt(args.data_train[:-5]+'_weight.csv', delimiter=',')
-    sampler = WeightedRandomSampler(samples_weight, len(samples_weight), replacement=True)
+        print('balanced sampler is not used')
+        train_loader = torch.utils.data.DataLoader(
+            dataloader.AudioDataset(f'{args.data_files}/1_fold_train_data.json', label_csv=args.label_csv, audio_conf=audio_conf),
+            batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=False, drop_last=True)
 
-    train_loader = torch.utils.data.DataLoader(
-        dataloader.AudioDataset(args.data_train, label_csv=args.label_csv, audio_conf=audio_conf),
-        batch_size=args.batch_size, sampler=sampler, num_workers=args.num_workers, pin_memory=False, drop_last=True)
-else:
-    print('balanced sampler is not used')
-    train_loader = torch.utils.data.DataLoader(
-        dataloader.AudioDataset(f'{args.data_files}/1_fold_train_data.json', label_csv=args.label_csv, audio_conf=audio_conf),
-        batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=False, drop_last=True)
+    val_loader = torch.utils.data.DataLoader(
+        dataloader.AudioDataset(f'{args.data_files}/1_fold_valid_data.json', label_csv=args.label_csv, audio_conf=val_audio_conf),
+        batch_size=args.batch_size * 2, shuffle=False, num_workers=args.num_workers, pin_memory=False)
 
-val_loader = torch.utils.data.DataLoader(
-    dataloader.AudioDataset(f'{args.data_files}/1_fold_valid_data.json', label_csv=args.label_csv, audio_conf=val_audio_conf),
-    batch_size=args.batch_size * 2, shuffle=False, num_workers=args.num_workers, pin_memory=False)
-
-print('Now train with {:s} with {:d} training samples, evaluate with {:d} samples'.format(args.dataset, len(train_loader.dataset), len(val_loader.dataset)))
+    print('Now train with {:s} with {:d} training samples, evaluate with {:d} samples'.format(args.dataset, len(train_loader.dataset), len(val_loader.dataset)))
 
 
-audio_model = ASTModel(label_dim=args.n_class, fshape=args.fshape, tshape=args.tshape, fstride=args.fstride, tstride=args.tstride,
-                    input_fdim=args.num_mel_bins, input_tdim=args.target_length, model_size=args.model_size, pretrain_stage=False,
-                    load_pretrained_mdl_path=args.pretrained_mdl_path, drop_rate=args.drop_rate)
+    audio_model = ASTModel(label_dim=args.n_class, fshape=args.fshape, tshape=args.tshape, fstride=args.fstride, tstride=args.tstride,
+                        input_fdim=args.num_mel_bins, input_tdim=args.target_length, model_size=args.model_size, pretrain_stage=False,
+                        load_pretrained_mdl_path=args.pretrained_mdl_path, drop_rate=args.drop_rate)
 
-if not isinstance(audio_model, torch.nn.DataParallel):
-    audio_model = torch.nn.DataParallel(audio_model)
+    if not isinstance(audio_model, torch.nn.DataParallel):
+        audio_model = torch.nn.DataParallel(audio_model)
 
-print("\nCreating experiment directory: %s" % args.exp_dir)
-if os.path.exists(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}") == False:
-    os.makedirs(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}/models/")
-else:
-    raise ValueError(f"Experiment directory {args.exp_dir}/{args.exp_name}/models already exists. Change args.exp_id")
-with open(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}/args.pkl", "wb") as f:
-    pickle.dump(args, f)
+    print("\nCreating experiment directory: %s" % args.exp_dir)
+    if os.path.exists(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}") == False:
+        os.makedirs(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}/models/")
+    else:
+        raise ValueError(f"Experiment directory {args.exp_dir}/{args.exp_name}/models already exists. Change args.exp_id")
+    with open(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}/args.pkl", "wb") as f:
+        pickle.dump(args, f)
 
-print('Now starting fine-tuning for {:d} epochs'.format(args.n_epochs))
-train(audio_model, train_loader, val_loader, args)
+    print('Now starting fine-tuning for {:d} epochs'.format(args.n_epochs))
+    train(audio_model, train_loader, val_loader, args)
 
-# if the dataset has a seperate evaluation set (e.g., speechcommands), then select the model using the validation set and eval on the evaluation set.
-# this is only for fine-tuning
+    # if the dataset has a seperate evaluation set (e.g., speechcommands), then select the model using the validation set and eval on the evaluation set.
+    # this is only for fine-tuning
+    best_model_path = f"{args.exp_dir}/{args.exp_name}/{args.exp_id}/models/best_audio_model.pth"
+    log_artifact(best_model_path)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    sd = torch.load(best_model_path, map_location=device)
+    if not isinstance(audio_model, torch.nn.DataParallel):
+        audio_model = torch.nn.DataParallel(audio_model)
+    audio_model.load_state_dict(sd, strict=False)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-sd = torch.load(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}/models/best_audio_model.pth", map_location=device)
-if not isinstance(audio_model, torch.nn.DataParallel):
-    audio_model = torch.nn.DataParallel(audio_model)
-audio_model.load_state_dict(sd, strict=False)
+    # best models on the validation set
+    stats, _ = validate(audio_model, train_loader, args, 'valid_set')
+    # note it is NOT mean of class-wise accuracy
+    train_acc = stats[0]['acc']
+    train_mAUC = np.mean([stat['auc'] for stat in stats])
+    print('---------------evaluate on the validation set---------------')
+    print("Accuracy: {:.6f}".format(train_acc))
+    print("AUC: {:.6f}".format(train_mAUC))
 
-# best models on the validation set
-stats, _ = validate(audio_model, val_loader, args, 'valid_set')
-# note it is NOT mean of class-wise accuracy
-val_acc = stats[0]['acc']
-val_mAUC = np.mean([stat['auc'] for stat in stats])
-print('---------------evaluate on the validation set---------------')
-print("Accuracy: {:.6f}".format(val_acc))
-print("AUC: {:.6f}".format(val_mAUC))
+    # best models on the validation set
+    stats, _ = validate(audio_model, val_loader, args, 'valid_set')
+    # note it is NOT mean of class-wise accuracy
+    val_acc = stats[0]['acc']
+    val_mAUC = np.mean([stat['auc'] for stat in stats])
+    print('---------------evaluate on the validation set---------------')
+    print("Accuracy: {:.6f}".format(val_acc))
+    print("AUC: {:.6f}".format(val_mAUC))
 
-# test the models on the evaluation set
-eval_loader = torch.utils.data.DataLoader(
-    dataloader.AudioDataset(f'{args.data_files}/1_fold_train_data.json', label_csv=args.label_csv, audio_conf=val_audio_conf),
-    batch_size=args.batch_size*2, shuffle=False, num_workers=args.num_workers, pin_memory=True)
-stats, _ = validate(audio_model, eval_loader, args, 'eval_set')
-eval_acc = stats[0]['acc']
-eval_mAUC = np.mean([stat['auc'] for stat in stats])
-print('---------------evaluate on the test set---------------')
-print("Accuracy: {:.6f}".format(eval_acc))
-print("AUC: {:.6f}".format(eval_mAUC))
-np.savetxt(f'{args.exp_dir}/{args.exp_name}/{args.exp_id}/eval_result.csv', [val_acc, val_mAUC, eval_acc, eval_mAUC])
+    # test the models on the evaluation set
+    eval_loader = torch.utils.data.DataLoader(
+        dataloader.AudioDataset(f'{args.data_files}/1_fold_train_data.json', label_csv=args.label_csv, audio_conf=val_audio_conf),
+        batch_size=args.batch_size*2, shuffle=False, num_workers=args.num_workers, pin_memory=True)
+    stats, _ = validate(audio_model, eval_loader, args, 'eval_set')
+    eval_acc = stats[0]['acc']
+    eval_mAUC = np.mean([stat['auc'] for stat in stats])
+    print('---------------evaluate on the test set---------------')
+    print("Accuracy: {:.6f}".format(eval_acc))
+    print("AUC: {:.6f}".format(eval_mAUC))
+    np.savetxt(f'{args.exp_dir}/{args.exp_name}/{args.exp_id}/eval_result.csv', [val_acc, val_mAUC, eval_acc, eval_mAUC])
+
+    log_metric("train_acc",train_acc)
+    log_metric("val_acc",val_acc)
+    log_metric("test_acc",eval_acc)
