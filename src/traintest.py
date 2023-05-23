@@ -50,11 +50,29 @@ def train(audio_model, train_loader, test_loader, args):
 
     # Freeze transformer blocks for fine-tuning
     for name,parameters in audio_model.named_parameters():
+        if "module.v.cls_token" in name and args.frozen_blocks > 0:
+            parameters.requires_grad = False
+            # print(f"{name} is not trainable")
+        if "module.v.pos_embed" in name:
+            parameters.requires_grad = False
+            # print(f"{name} is not trainable")
+        if "module.v.dist_token" in name:
+            parameters.requires_grad = False
+            # print(f"{name} is not trainable")
+        if "module.v.norm" in name:
+            parameters.requires_grad = False
+            # print(f"{name} is not trainable")            
+        if "module.v.head" in name:
+            parameters.requires_grad = False
+            # print(f"{name} is not trainable") 
+        
         for block_num in range(args.frozen_blocks):
             if "module.v.patch_embed.proj" in name:
                 parameters.requires_grad = False
+                # print(f"{name} is not trainable")
             elif f"module.v.blocks.{block_num}" in name:
                 parameters.requires_grad = False
+                # print(f"{name} is not trainable")
 
     audio_model = audio_model.to(device)
     

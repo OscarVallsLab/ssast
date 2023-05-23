@@ -1,0 +1,3 @@
+python src/fine_tune_ssast.py --exp_name ft_teacher_ssast --exp_id 0 --lr 0.001 --batch_size 8 --n_epochs 20 --frozen_blocks 12 --drop_rate 0.0 --model_size tiny --pretrained_mdl_path ../NASFolder/pretrained/SSAST-Tiny-Frame-400.pth
+python src/fine_tune_ssast.py --exp_name ft_teacher_ssast --exp_id 1 --lr 0.001 --batch_size 16 --n_epochs 20 --frozen_blocks 12 --drop_rate 0.0 --model_size tiny --pretrained_mdl_path ../NASFolder/pretrained/SSAST-Tiny-Frame-400.pth
+python src/fine_tune_ssast.py --exp_name ft_teacher_ssast --exp_id 2 --lr 0.001 --batch_size 32 --n_epochs 20 --frozen_blocks 12 --drop_rate 0.0 --model_size tiny --pretrained_mdl_path ../NASFolder/pretrained/SSAST-Tiny-Frame-400.pth
