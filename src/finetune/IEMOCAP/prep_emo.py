@@ -3,7 +3,7 @@ import json
 import numpy as np
 import pandas as pd
 
-DATA_PATH = os.path.abspath('/workspace/NASFolder/data/IEMOCAP/KFolds')
+DATA_PATH = os.path.abspath('../NASFolder/data/IEMOCAP/KFolds')
 print(DATA_PATH)
 OUTPUT_PATH = './src/finetune/IEMOCAP/data/datafiles'
 # print(DATA_PATH)
