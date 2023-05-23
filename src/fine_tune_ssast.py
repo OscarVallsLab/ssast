@@ -28,11 +28,11 @@ parser = argparse.ArgumentParser()
 
 # Experiment arguments
 parser.add_argument("--exp_name", type=str, help="directory to dump experiments", required=True)
-parser.add_argument('--exp_dir', type=str, default='../../NASFolder/results/ssast')
+parser.add_argument('--exp_dir', type=str, default='/workspace/NASFolder/results/ssast')
 parser.add_argument('--exp_id', type=int, required=True)
 # Dataset arguments
-parser.add_argument("--data_files", type=str, default='./finetune/IEMOCAP/data/datafiles/', help="training data json")
-parser.add_argument("--label_csv", type=str, default='./finetune/IEMOCAP/data/IEMOCAP_class_labels_indices.csv', help="csv with class labels")
+parser.add_argument("--data_files", type=str, default='./src/finetune/IEMOCAP/data/datafiles/', help="training data json")
+parser.add_argument("--label_csv", type=str, default='./src/finetune/IEMOCAP/data/IEMOCAP_class_labels_indices.csv', help="csv with class labels")
 parser.add_argument("--n_class", type=int, default=6, help="number of classes")
 parser.add_argument("--dataset", type=str, default='iemocap', help="the dataset used for training")
 parser.add_argument("--dataset_mean", type=float, default=-6.845978, help="the dataset mean, used for input normalization")
@@ -82,7 +82,7 @@ parser.add_argument("--loss", type=str, default="CE", help="the loss function fo
 
 # model arguments
 parser.add_argument('--model_size', help='the size of AST models', type=str, default='base')
-parser.add_argument("--pretrained_mdl_path", type=str, default='../../NASFolder/pretrained/SSAST-Base-Frame-400.pth', help="the ssl pretrained models path")
+parser.add_argument("--pretrained_mdl_path", type=str, default='/workspace/NASFolder/pretrained/SSAST-Base-Frame-400.pth', help="the ssl pretrained models path")
 
 # pretraining augments
 # #parser.add_argument('--pretrain_stage', help='True for self-supervised pretraining stage, False for fine-tuning stage', type=ast.literal_eval, default='False')

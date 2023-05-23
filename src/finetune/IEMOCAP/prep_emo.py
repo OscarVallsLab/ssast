@@ -3,9 +3,9 @@ import json
 import numpy as np
 import pandas as pd
 
-DATA_PATH = os.path.abspath('../../../../NASFolder/data/IEMOCAP/KFolds')
+DATA_PATH = os.path.abspath('/workspace/NASFolder/data/IEMOCAP/KFolds')
 print(DATA_PATH)
-OUTPUT_PATH = './datafiles'
+OUTPUT_PATH = './src/finetune/IEMOCAP/data/datafiles'
 # print(DATA_PATH)
 
 label_set = np.loadtxt('./src/finetune/IEMOCAP/data/IEMOCAP_class_labels_indices.csv', delimiter=',', dtype='str')
@@ -31,7 +31,7 @@ for k in range(1,5):
             "labels" : train_df.iloc[index]['class']
             })
     
-    with open(f'./data/datafiles/{k}_fold_train_data.json','w') as file:
+    with open(f'{OUTPUT_PATH}/{k}_fold_train_data.json','w') as file:
         json.dump(train_dict,file)
         
     for index in range(len(val_df)):
@@ -42,7 +42,7 @@ for k in range(1,5):
             "labels" : val_df.iloc[index]['class']
         })
     
-    with open(f'./data/datafiles/{k}_fold_valid_data.json','w') as file:
+    with open(f'{OUTPUT_PATH}/{k}_fold_valid_data.json','w') as file:
         json.dump(val_dict,file)
 
 print(f"Proccessing test split")
@@ -56,7 +56,7 @@ for index in range(len(test_df)):
         "labels" : test_df.iloc[index]['class']
         })
 
-with open(f'./data/datafiles/test_data.json','w') as file:
+with open(f'{OUTPUT_PATH}/test_data.json','w') as file:
     json.dump(test_dict,file)
 
 
