@@ -17,3 +17,4 @@ captum
 torch_summary
 seaborn
 vit_pytorch
+mlflow

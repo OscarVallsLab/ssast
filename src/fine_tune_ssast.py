@@ -12,6 +12,8 @@ import pickle
 import sys
 import time
 import torch
+import mlflow
+
 from torch.utils.data import WeightedRandomSampler
 basepath = os.path.dirname(os.path.dirname(sys.path[0]))
 sys.path.append(basepath)
@@ -20,6 +22,7 @@ from models.ast_models import ASTModel
 import numpy as np
 from traintest import train, validate
 from traintest_mask import trainmask
+from mlflow import log_metric, log_param, log_params, log_artifacts
 
 print("I am process %s, running on %s: starting (%s)" % (os.getpid(), os.uname()[1], time.asctime()))
 
@@ -64,6 +67,7 @@ parser.add_argument("--n_epochs", type=int, help="number of maximum training epo
 parser.add_argument("--drop_rate",default=0.,help="Dropout probability while training", required=True)
 parser.add_argument("--optim", type=str, default="adam", help="training optimizer", choices=["sgd", "adam"])
 parser.add_argument('-w', '--num_workers', default=4, type=int, metavar='NW', help='# of workers for dataloading (default: 32)')
+
 # only used in pretraining stage or from-scratch fine-tuning experiments
 parser.add_argument("--lr_patience", type=int, default=1, help="how many epoch to wait to reduce lr if mAP doesn't improve")
 parser.add_argument('--adaptschedule', help='if use adaptive scheduler ', type=ast.literal_eval, default='False')
@@ -84,22 +88,25 @@ parser.add_argument("--loss", type=str, default="CE", help="the loss function fo
 parser.add_argument('--model_size', help='the size of AST models', type=str, default='base')
 parser.add_argument("--pretrained_mdl_path", type=str, default='/workspace/NASFolder/pretrained/SSAST-Base-Frame-400.pth', help="the ssl pretrained models path")
 
-# pretraining augments
-# #parser.add_argument('--pretrain_stage', help='True for self-supervised pretraining stage, False for fine-tuning stage', type=ast.literal_eval, default='False')
-# parser.add_argument('--mask_patch', help='how many patches to mask (used only for ssl pretraining)', type=int, default=400)
-# parser.add_argument("--cluster_factor", type=int, default=3, help="mask clutering factor")
-# parser.add_argument("--epoch_iter", type=int, default=2000, help="for pretraining, how many iterations to verify and save models")
-
 # tracking arguments
 parser.add_argument("--metrics", type=str, default="acc", help="the main evaluation metrics in finetuning", choices=["mAP", "acc"])
 
 args = parser.parse_args()
 
-# # dataset spectrogram mean and std, used to normalize the input
-# norm_stats = {'librispeech':[-4.2677393, 4.5689974], 'howto100m':[-4.2677393, 4.5689974], 'audioset':[-4.2677393, 4.5689974], 'esc50':[-6.6268077, 5.358466], 'speechcommands':[-6.845978, 5.5654526]}
-# target_length = {'librispeech': 1024, 'howto100m':1024, 'audioset':1024, 'esc50':512, 'speechcommands':128}
-# # if add noise for data augmentation, only use for speech commands
-# noise = {'librispeech': False, 'howto100m': False, 'audioset': False, 'esc50': False, 'speechcommands':True}
+# Start MLFlow experiment
+mlflow.set_experiment("SSAST fine-tuning as teacher model with IEMOCAP")
+
+# Keep Track of parameters
+with mlflow.start_run(run_name=args.exp_id):
+    log_params({
+        "lr":args.lr,
+        "batch_size":args.batch_size,
+        "dropout":args.drop_rate,
+        "task":args.task,
+        "frozen_blocks":args.frozen_blocks,
+        "model_size":args.model.size,
+        "epochs":args.n_epochs
+    })
 
 audio_conf = {'num_mel_bins': args.num_mel_bins, 'target_length': args.target_length, 'freqm': args.freqm, 'timem': args.timem, 'mixup': args.mixup, 'dataset': args.dataset,
               'mode':'train', 'mean':args.dataset_mean, 'std':args.dataset_std, 'noise':args.noise}
@@ -161,6 +168,16 @@ if not isinstance(audio_model, torch.nn.DataParallel):
 audio_model.load_state_dict(sd, strict=False)
 
 # best models on the validation set
+stats, _ = validate(audio_model, train_loader, args, 'valid_set')
+# note it is NOT mean of class-wise accuracy
+train_acc = stats[0]['acc']
+train_mAUC = np.mean([stat['auc'] for stat in stats])
+print('---------------evaluate on the validation set---------------')
+print("Accuracy: {:.6f}".format(train_acc))
+print("AUC: {:.6f}".format(train_mAUC))
+
+
+# best models on the validation set
 stats, _ = validate(audio_model, val_loader, args, 'valid_set')
 # note it is NOT mean of class-wise accuracy
 val_acc = stats[0]['acc']
@@ -180,3 +197,8 @@ print('---------------evaluate on the test set---------------')
 print("Accuracy: {:.6f}".format(eval_acc))
 print("AUC: {:.6f}".format(eval_mAUC))
 np.savetxt(f'{args.exp_dir}/{args.exp_name}/{args.exp_id}/eval_result.csv', [val_acc, val_mAUC, eval_acc, eval_mAUC])
+
+with mlflow.start_run(run_name=args.exp_id):
+    log_metric("train_acc",train_acc)
+    log_metric("val_acc",val_acc)
+    log_metric("test_acc",eval_acc)
