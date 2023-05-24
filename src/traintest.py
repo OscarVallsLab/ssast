@@ -17,6 +17,7 @@ import numpy as np
 import pickle
 from torch.cuda.amp import autocast,GradScaler
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 IEMOCAP_CLASS_WEIGHTS = [0.76851852, 0.91937669, 0.85049684, 0.85298103, 0.85907859, 0.74954833]
 
@@ -142,14 +143,15 @@ def train(audio_model, train_loader, test_loader, args):
     print('now training with {:s}, main metrics: {:s}, loss function: {:s}, learning rate scheduler: {:s}'.format(str(args.dataset), str(main_metrics), str(loss_fn), str(scheduler)))
     print('The learning rate scheduler starts at {:d} epoch with decay rate of {:.3f} every {:d} epoches'.format(args.lrscheduler_start, args.lrscheduler_decay, args.lrscheduler_step))
 
-    epoch += 1
+    epoch = 1
 
     print("current #steps=%s, #epochs=%s" % (global_step, epoch))
     print("start training...")
     result = np.zeros([args.n_epochs, 10])
     audio_model.train()
-    progress_bar = tqdm(range(len(train_loader)))
-    while epoch < args.n_epochs + 1:
+    
+    while epoch - 1 < args.n_epochs:
+        progress_bar = tqdm(range(len(train_loader)))
         begin_time = time.time()
         end_time = time.time()
         audio_model.train()
@@ -157,6 +159,7 @@ def train(audio_model, train_loader, test_loader, args):
         print(datetime.datetime.now())
         print("current #epochs=%s, #steps=%s" % (epoch, global_step))
         epoch_start = time.time()
+        losses = np.zeros((2,args.n_epochs))
         for i, (audio_input, labels) in enumerate(train_loader):
 
             B = audio_input.size(0)
@@ -235,6 +238,10 @@ def train(audio_model, train_loader, test_loader, args):
         middle_rs = [stat['recalls'][int(len(stat['recalls'])/2)] for stat in stats]
         average_precision = np.mean(middle_ps)
         average_recall = np.mean(middle_rs)
+
+        # Save epoch losses to plot
+        losses[0,epoch-1] = loss_meter.avg
+        losses[1,epoch-1] = valid_loss
 
         if main_metrics == 'mAP':
             print("mAP: {:.6f}".format(mAP))
@@ -326,6 +333,8 @@ def train(audio_model, train_loader, test_loader, args):
         print("train_loss: {:.6f}".format(loss_meter.avg))
         print("valid_loss: {:.6f}".format(valid_loss))
         np.savetxt(exp_dir + '/wa_result.csv', wa_result)
+
+    return losses
 
 def validate(audio_model, val_loader, args, epoch):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

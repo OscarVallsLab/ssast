@@ -13,13 +13,16 @@ import sys
 import time
 import torch
 import mlflow
+import dataloader
+
+import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 
 from torch.utils.data import WeightedRandomSampler
 basepath = os.path.dirname(os.path.dirname(sys.path[0]))
 sys.path.append(basepath)
-import dataloader
 from models.ast_models import ASTModel
-import numpy as np
 from traintest import train, validate
 from traintest_mask import trainmask
 from mlflow import log_metric, log_params, log_artifact
@@ -154,13 +157,22 @@ with mlflow.start_run(run_name=str(args.exp_id)):
     print("\nCreating experiment directory: %s" % args.exp_dir)
     if os.path.exists(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}") == False:
         os.makedirs(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}/models/")
+
     else:
         raise ValueError(f"Experiment directory {args.exp_dir}/{args.exp_name}/models already exists. Change args.exp_id")
     with open(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}/args.pkl", "wb") as f:
         pickle.dump(args, f)
 
     print('Now starting fine-tuning for {:d} epochs'.format(args.n_epochs))
-    train(audio_model, train_loader, val_loader, args)
+    losses = train(audio_model, train_loader, val_loader, args)
+    
+    # Plot training and validation loss curves
+    mpl.use("tkagg")
+    plt.figure(figsize=(5,5))
+    plt.plot(losses[0,:],label='Training loss')
+    plt.plot(losses[1,:],label='Validation loss')
+    plt.savefig(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}/loss.png")
+    log_artifact(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}/loss.png")
 
     # if the dataset has a seperate evaluation set (e.g., speechcommands), then select the model using the validation set and eval on the evaluation set.
     # this is only for fine-tuning
