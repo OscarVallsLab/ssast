@@ -98,7 +98,7 @@ args = parser.parse_args()
 
 # Set th tracking URI
 mlruns_path = os.path.abspath('../NASFolder/mlruns')
-os.environ['MLFLOW_TRACKING_URI'] = mlruns_path
+mlflow.set_tracking_uri(f'file:{mlruns_path}')
 
 # Start MLFlow experiment
 mlflow.set_experiment(args.exp_name)
@@ -167,7 +167,7 @@ with mlflow.start_run(run_name=str(args.exp_id)):
     losses = train(audio_model, train_loader, val_loader, args)
     
     # Plot training and validation loss curves
-    mpl.use("tkagg")
+    mpl.use("agg")
     plt.figure(figsize=(5,5))
     plt.plot(losses[0,:],label='Training loss')
     plt.plot(losses[1,:],label='Validation loss')
