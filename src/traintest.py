@@ -280,9 +280,9 @@ def train(audio_model, train_loader, test_loader, args):
             torch.save(optimizer.state_dict(), "%s/models/best_optim_state.pth" % (exp_dir))
 
         # save every models
-        torch.save(audio_model.state_dict(), "%s/models/audio_model.%d.pth" % (exp_dir, epoch))
-        if len(train_loader.dataset) > 2e5:
-            torch.save(optimizer.state_dict(), "%s/models/optim_state.%d.pth" % (exp_dir, epoch))
+        #torch.save(audio_model.state_dict(), "%s/models/audio_model.%d.pth" % (exp_dir, epoch))
+        # if len(train_loader.dataset) > 2e5:
+        #     torch.save(optimizer.state_dict(), "%s/models/optim_state.%d.pth" % (exp_dir, epoch))
 
         if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
             print('adaptive learning rate scheduler step')
