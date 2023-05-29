@@ -149,7 +149,7 @@ def train(audio_model, train_loader, test_loader, args):
     print("start training...")
     result = np.zeros([args.n_epochs, 10])
     audio_model.train()
-    
+    losses = np.zeros((2,args.n_epochs))
     while epoch - 1 < args.n_epochs:
         progress_bar = tqdm(range(len(train_loader)))
         begin_time = time.time()
@@ -159,7 +159,7 @@ def train(audio_model, train_loader, test_loader, args):
         print(datetime.datetime.now())
         print("current #epochs=%s, #steps=%s" % (epoch, global_step))
         epoch_start = time.time()
-        losses = np.zeros((2,args.n_epochs))
+        
         for i, (audio_input, labels) in enumerate(train_loader):
 
             B = audio_input.size(0)
