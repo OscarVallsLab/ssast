@@ -204,7 +204,7 @@ with mlflow.start_run(run_name=str(args.exp_id)):
 
     # test the models on the evaluation set
     eval_loader = torch.utils.data.DataLoader(
-        dataloader.AudioDataset(f'{args.data_files}/1_fold_train_data.json', label_csv=args.label_csv, audio_conf=val_audio_conf),
+        dataloader.AudioDataset(f'{args.data_files}/test_data.json', label_csv=args.label_csv, audio_conf=val_audio_conf),
         batch_size=args.batch_size*2, shuffle=False, num_workers=args.num_workers, pin_memory=True)
     stats, _ = validate(audio_model, eval_loader, args, 'eval_set')
     eval_acc = stats[0]['acc']
