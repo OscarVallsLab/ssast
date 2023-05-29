@@ -92,16 +92,16 @@ def validate(audio_model, val_loader, args, epoch):
             end = time.time()
 
 
-        audio_output = torch.cat(A_predictions)
+        audio_predictions = torch.cat(A_predictions)
         target = torch.cat(A_targets)
         loss = np.mean(A_loss)
-        acc = metrics.accuracy_score(np.argmax(target, 1), np.argmax(audio_output, 1))
+        acc = metrics.accuracy_score(np.argmax(target, 1), np.argmax(audio_predictions, 1))
 
         # save the prediction here
         if os.path.exists(exp_dir+'/predictions') == False:
             os.mkdir(exp_dir+'/predictions')
             np.savetxt(exp_dir+'/predictions/target.csv', target, delimiter=',')
-        np.savetxt(exp_dir+'/predictions/predictions_' + str(epoch) + '.csv', audio_output, delimiter=',')
+        np.savetxt(exp_dir+'/predictions/predictions_' + str(epoch) + '.csv', audio_predictions, delimiter=',')
 
     return acc, loss, conf_matrix
 
