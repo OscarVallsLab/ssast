@@ -38,8 +38,8 @@ parser.add_argument('--exp_dir', type=str, default='../NASFolder/results/ssast')
 parser.add_argument('--exp_id', type=int, required=True)
 # Dataset arguments
 parser.add_argument("--data_files", type=str, default='./src/finetune/IEMOCAP/data/datafiles/', help="training data json")
-parser.add_argument("--label_csv", type=str, default='./src/finetune/IEMOCAP/data/IEMOCAP_class_labels_indices.csv', help="csv with class labels")
-parser.add_argument("--n_class", type=int, default=6, help="number of classes")
+parser.add_argument("--label_csv", type=str, default='./src/finetune/IEMOCAP/data/IEMOCAP_bal_class_labels_indices.csv', help="csv with class labels")
+parser.add_argument("--n_class", type=int, default=4, help="number of classes")
 parser.add_argument("--dataset", type=str, default='iemocap', help="the dataset used for training")
 parser.add_argument("--dataset_mean", type=float, default=-6.845978, help="the dataset mean, used for input normalization")
 parser.add_argument("--dataset_std", type=float, default=5.5654526, help="the dataset std, used for input normalization")
@@ -137,11 +137,11 @@ with mlflow.start_run(run_name=str(args.exp_id)):
     else:
         print('balanced sampler is not used')
         train_loader = torch.utils.data.DataLoader(
-            dataloader.AudioDataset(f'{args.data_files}/1_fold_train_data.json', label_csv=args.label_csv, audio_conf=audio_conf),
+            dataloader.AudioDataset(f'{args.data_files}/1_fold_bal_train_data.json', label_csv=args.label_csv, audio_conf=audio_conf),
             batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=False, drop_last=True)
 
     val_loader = torch.utils.data.DataLoader(
-        dataloader.AudioDataset(f'{args.data_files}/1_fold_valid_data.json', label_csv=args.label_csv, audio_conf=val_audio_conf),
+        dataloader.AudioDataset(f'{args.data_files}/1_fold_bal_valid_data.json', label_csv=args.label_csv, audio_conf=val_audio_conf),
         batch_size=args.batch_size * 2, shuffle=False, num_workers=args.num_workers, pin_memory=False)
 
     print('Now train with {:s} with {:d} training samples, evaluate with {:d} samples'.format(args.dataset, len(train_loader.dataset), len(val_loader.dataset)))
@@ -159,7 +159,9 @@ with mlflow.start_run(run_name=str(args.exp_id)):
         os.makedirs(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}/models/")
 
     else:
-        raise ValueError(f"Experiment directory {args.exp_dir}/{args.exp_name}/models already exists. Change args.exp_id")
+        if args.exp_name != 'debug':
+            raise ValueError(f"Experiment directory {args.exp_dir}/{args.exp_name}/models already exists. Change args.exp_id")
+    
     with open(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}/args.pkl", "wb") as f:
         pickle.dump(args, f)
 
@@ -204,7 +206,7 @@ with mlflow.start_run(run_name=str(args.exp_id)):
 
     # test the models on the evaluation set
     eval_loader = torch.utils.data.DataLoader(
-        dataloader.AudioDataset(f'{args.data_files}/test_data.json', label_csv=args.label_csv, audio_conf=val_audio_conf),
+        dataloader.AudioDataset(f'{args.data_files}/bal_test_data.json', label_csv=args.label_csv, audio_conf=val_audio_conf),
         batch_size=args.batch_size*2, shuffle=False, num_workers=args.num_workers, pin_memory=True)
     stats, _ = validate(audio_model, eval_loader, args, 'eval_set')
     eval_acc = stats[0]['acc']

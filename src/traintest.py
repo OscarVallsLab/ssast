@@ -135,7 +135,9 @@ def train(audio_model, train_loader, test_loader, args):
     elif args.loss == 'CE':
         if args.dataset == 'iemocap':
             print("Using class weighted classes to compute loss function")
-            loss_fn = nn.CrossEntropyLoss(weight=torch.tensor(IEMOCAP_CLASS_WEIGHTS).cuda())
+            # loss_fn = nn.CrossEntropyLoss(weight=torch.tensor(IEMOCAP_CLASS_WEIGHTS).cuda())
+            loss_fn = nn.CrossEntropyLoss()
+
         else:
             loss_fn = nn.CrossEntropyLoss()
     args.loss_fn = loss_fn
