@@ -14,7 +14,6 @@ import time
 import torch
 from torch import nn
 import numpy as np
-import pickle
 from torch.cuda.amp import autocast,GradScaler
 from tqdm import tqdm
 import matplotlib.pyplot as plt
@@ -39,12 +38,6 @@ def train(audio_model, train_loader, test_loader, args):
     global_step, epoch = 0, 0
     start_time = time.time()
     exp_dir = f'{args.exp_dir}/{args.exp_name}/{args.exp_id}'
-
-    def _save_progress():
-        progress.append([epoch, global_step, best_epoch, best_mAP,
-                time.time() - start_time])
-        with open("%s/progress.pkl" % exp_dir, "wb") as f:
-            pickle.dump(progress, f)
 
     if not isinstance(audio_model, nn.DataParallel):
         audio_model = nn.DataParallel(audio_model)
@@ -296,9 +289,6 @@ def train(audio_model, train_loader, test_loader, args):
         print('Epoch-{0} lr: {1}'.format(epoch, optimizer.param_groups[0]['lr']))
         print('Epoch-{0} lr: {1}'.format(epoch, optimizer.param_groups[1]['lr']))
 
-        with open(exp_dir + '/stats_' + str(epoch) +'.pickle', 'wb') as handle:
-            pickle.dump(stats, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        _save_progress()
 
         finish_time = time.time()
         print('epoch {:d} training time: {:.3f}'.format(epoch, finish_time-begin_time))
