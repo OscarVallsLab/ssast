@@ -168,7 +168,7 @@ with mlflow.start_run(run_name=str(args.exp_id)):
             pickle.dump(args, f)
 
         print('Now starting fine-tuning for {:d} epochs'.format(args.n_epochs))
-        losses = train(audio_model, train_loader, val_loader, args)
+        losses = train(audio_model, train_loader, val_loader, fold, args)
         
         # Plot training and validation loss curves
         mpl.use("agg")

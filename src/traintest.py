@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 
 IEMOCAP_CLASS_WEIGHTS = [0.76851852, 0.91937669, 0.85049684, 0.85298103, 0.85907859, 0.74954833]
 
-def train(audio_model, train_loader, test_loader, args):
+def train(audio_model, train_loader, test_loader, fold, args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print('running on ' + str(device))
     torch.set_grad_enabled(True)
@@ -271,7 +271,7 @@ def train(audio_model, train_loader, test_loader, args):
             best_cum_mAP = cum_mAP
 
         if best_epoch == epoch:
-            torch.save(audio_model.state_dict(), "%s/models/best_audio_model.pth" % (exp_dir))
+            torch.save(audio_model.state_dict(), f"{exp_dir}/models/fold_{fold}_best_audio_model.pth")
             torch.save(optimizer.state_dict(), "%s/models/best_optim_state.pth" % (exp_dir))
 
         # save every models
