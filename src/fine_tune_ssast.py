@@ -69,7 +69,7 @@ parser.add_argument('--batch_size', type=int, help='mini-batch size', required=T
 parser.add_argument("--n_epochs", type=int, help="number of maximum training epochs", required=True)
 parser.add_argument("--drop_rate",default=0.,help="Dropout probability while training", required=True)
 parser.add_argument("--optim", type=str, default="adam", help="training optimizer", choices=["sgd", "adam"])
-parser.add_argument('-w', '--num_workers', default=4, type=int, metavar='NW', help='# of workers for dataloading (default: 32)')
+parser.add_argument('-w', '--num_workers', default=8, type=int, metavar='NW', help='# of workers for dataloading (default: 32)')
 
 # only used in pretraining stage or from-scratch fine-tuning experiments
 parser.add_argument("--lr_patience", type=int, default=1, help="how many epoch to wait to reduce lr if mAP doesn't improve")
