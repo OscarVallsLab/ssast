@@ -115,6 +115,14 @@ with mlflow.start_run(run_name=str(args.exp_id)):
         "epochs":args.n_epochs
     })
 
+    print("\nCreating experiment directory: %s" % args.exp_dir)
+    if os.path.exists(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}") == False:
+        os.makedirs(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}/models/")
+
+    else:
+        if args.exp_name != 'debug':
+            raise ValueError(f"Experiment directory {args.exp_dir}/{args.exp_name}/models already exists. Change args.exp_id")
+
     for fold in range(1,5):
 
         audio_conf = {'num_mel_bins': args.num_mel_bins, 'target_length': args.target_length, 'freqm': args.freqm, 'timem': args.timem, 'mixup': args.mixup, 'dataset': args.dataset,
@@ -155,14 +163,6 @@ with mlflow.start_run(run_name=str(args.exp_id)):
 
         if not isinstance(audio_model, torch.nn.DataParallel):
             audio_model = torch.nn.DataParallel(audio_model)
-
-        print("\nCreating experiment directory: %s" % args.exp_dir)
-        if os.path.exists(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}") == False:
-            os.makedirs(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}/models/")
-
-        else:
-            if args.exp_name != 'debug':
-                raise ValueError(f"Experiment directory {args.exp_dir}/{args.exp_name}/models already exists. Change args.exp_id")
         
         with open(f"{args.exp_dir}/{args.exp_name}/{args.exp_id}/args.pkl", "wb") as f:
             pickle.dump(args, f)
