@@ -14,7 +14,7 @@ import time
 import torch
 import mlflow
 import dataloader
-
+import json
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -123,7 +123,7 @@ with mlflow.start_run(run_name=str(args.exp_id)):
         if args.exp_name != 'debug':
             raise ValueError(f"Experiment directory {args.exp_dir}/{args.exp_name}/models already exists. Change args.exp_id")
 
-    for fold in range(1,5):
+    for fold in range(1,2):
 
         audio_conf = {'num_mel_bins': args.num_mel_bins, 'target_length': args.target_length, 'freqm': args.freqm, 'timem': args.timem, 'mixup': args.mixup, 'dataset': args.dataset,
                     'mode':'train', 'mean':args.dataset_mean, 'std':args.dataset_std, 'noise':args.noise}
