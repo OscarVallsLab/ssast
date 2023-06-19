@@ -100,10 +100,10 @@ def validate(audio_model, val_loader, args, epoch):
         acc = metrics.accuracy_score(np.argmax(target, 1), np.argmax(audio_predictions, 1))
 
         # save the prediction here
-        if os.path.exists(exp_dir+'/predictions') == False:
-            os.mkdir(exp_dir+'/predictions')
-            np.savetxt(exp_dir+'/predictions/target.csv', target, delimiter=',')
-        np.savetxt(exp_dir+'/predictions/predictions_' + str(epoch) + '.csv', audio_predictions, delimiter=',')
+        # if os.path.exists(exp_dir+'/predictions') == False:
+        #     os.mkdir(exp_dir+'/predictions')
+            # np.savetxt(exp_dir+'/predictions/target.csv', target, delimiter=',')
+        # np.savetxt(exp_dir+'/predictions/predictions_' + str(epoch) + '.csv', audio_predictions, delimiter=',')
 
     return acc, loss, conf_matrix
 
@@ -143,7 +143,7 @@ for fold in range(1,2):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         # Load state dictionary for the model
-        sd = torch.load(exp_dir + 'models/best_audio_model.pth', map_location=device)
+        sd = torch.load(exp_dir + 'models/fold_1_best_audio_model.pth', map_location=device)
         if not isinstance(audio_model, torch.nn.DataParallel):
             audio_model = torch.nn.DataParallel(audio_model)
         audio_model.load_state_dict(sd, strict=False)
